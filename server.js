@@ -29,6 +29,38 @@ function validasiData(body) {
   return { data };
 }
 
+function validasiAset(body) {
+  const bersih = (v) => (typeof v === 'string' ? v.trim() : '');
+  const kode = bersih(body.kode);
+  const nama = bersih(body.nama);
+  if (!kode) return { error: 'Kode aset wajib diisi.' };
+  if (!nama) return { error: 'Nama aset wajib diisi.' };
+  const nilai = Number(body.nilai);
+  const status = bersih(body.status);
+  return {
+    data: {
+      kode,
+      nama,
+      kategori: bersih(body.kategori),
+      nilai: Number.isFinite(nilai) && nilai > 0 ? nilai : 0,
+      kondisi: bersih(body.kondisi) || 'baik',
+      status: ['tersedia', 'dipakai', 'rusak'].includes(status) ? status : 'tersedia',
+    },
+  };
+}
+
+async function ambilInfoAset(kodeAset) {
+  if (!kodeAset || kodeAset.length === 0) return [];
+  const semua = await storage.aset.daftarAset();
+  const map = new Map(semua.map((a) => [String(a.kode), a]));
+  return kodeAset.map((k) => {
+    const a = map.get(String(k));
+    return a
+      ? { kode: a.kode, nama: a.nama, kondisi: a.kondisi, status: a.status }
+      : { kode: String(k), nama: '', kondisi: '', status: '' };
+  });
+}
+
 async function buatSurat(data) {
   // Retry jika nomor bentrok (kemungkinan dua permintaan bersamaan di mode supabase).
   for (let i = 0; i < 4; i++) {
@@ -97,7 +129,9 @@ app.get('/api/config', (_req, res) => {
 
 app.get('/api/riwayat', async (_req, res) => {
   try {
-    res.json(await storage.bacaRiwayat());
+    const daftar = await storage.bacaRiwayat();
+    const map = await storage.aset.kodeAsetPerNomor();
+    res.json(daftar.map((s) => ({ ...s, aset: map[s.nomor] || [] })));
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Gagal membaca riwayat.' });
@@ -109,7 +143,14 @@ app.post('/api/surat', async (req, res) => {
     const hasil = validasiData(req.body || {});
     if (hasil.error) return res.status(400).json({ error: hasil.error });
 
+    const kodeAset = Array.isArray(req.body.aset) ? req.body.aset : [];
     const surat = await buatSurat(hasil.data);
+
+    if (kodeAset.length) {
+      await storage.aset.tautkanSurat(surat.nomor, kodeAset);
+      await storage.aset.aturStatus(kodeAset, hasil.data.kategori === 'penyerahan' ? 'dipakai' : 'tersedia');
+    }
+    surat.aset = await ambilInfoAset(kodeAset);
     const namaFile = await simpanSuratDanPdf(surat);
 
     res.json({ ...surat, pdf: namaFile });
@@ -127,8 +168,13 @@ app.put('/api/surat/:nomor', async (req, res) => {
     const lama = (await storage.bacaRiwayat()).find((r) => String(r.nomor) === String(req.params.nomor));
     if (!lama) return res.status(404).json({ error: 'Nomor surat tidak ditemukan.' });
 
+    const kodeAset = Array.isArray(req.body.aset) ? req.body.aset : [];
     const surat = { ...lama, ...hasil.data };
     await storage.updateRiwayat(lama.nomor, surat);
+
+    await storage.aset.tautkanSurat(surat.nomor, kodeAset);
+    await storage.aset.aturStatus(kodeAset, hasil.data.kategori === 'penyerahan' ? 'dipakai' : 'tersedia');
+    surat.aset = await ambilInfoAset(kodeAset);
     const namaFile = await simpanSuratDanPdf(surat);
 
     res.json({ ...surat, pdf: namaFile });
@@ -150,11 +196,75 @@ app.delete('/api/surat/:nomor', async (req, res) => {
     } catch {
       /* PDF tidak ditemukan, abaikan */
     }
+    try {
+      await storage.aset.hapusTautanSurat(nomor);
+    } catch {
+      /* tidak ada tautan */
+    }
 
     res.json({ ok: true });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Gagal menghapus data.' });
+  }
+});
+
+// --- Aset ---
+app.get('/api/aset', async (_req, res) => {
+  try {
+    res.json(await storage.aset.daftarAset());
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Gagal membaca data aset.' });
+  }
+});
+
+app.post('/api/aset', async (req, res) => {
+  try {
+    const hasil = validasiAset(req.body || {});
+    if (hasil.error) return res.status(400).json({ error: hasil.error });
+    const aset = await storage.aset.tambahAset(hasil.data);
+    res.json(aset);
+  } catch (err) {
+    console.error(err);
+    if (err && (err.code === '23505' || err.code === 'DUP' || /duplicate|sudah dipakai/i.test(String(err.message)))) {
+      return res.status(400).json({ error: 'Kode aset sudah dipakai.' });
+    }
+    res.status(500).json({ error: 'Gagal menyimpan aset.' });
+  }
+});
+
+app.put('/api/aset/:kode', async (req, res) => {
+  try {
+    const hasil = validasiAset(req.body || {});
+    if (hasil.error) return res.status(400).json({ error: hasil.error });
+    const aset = await storage.aset.updateAset(req.params.kode, hasil.data);
+    if (!aset) return res.status(404).json({ error: 'Aset tidak ditemukan.' });
+    res.json(aset);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Gagal mengubah aset.' });
+  }
+});
+
+app.delete('/api/aset/:kode', async (req, res) => {
+  try {
+    const ok = await storage.aset.hapusAset(req.params.kode);
+    if (!ok) return res.status(404).json({ error: 'Aset tidak ditemukan.' });
+    res.json({ ok: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Gagal menghapus aset.' });
+  }
+});
+
+app.get('/api/aset/:kode/riwayat', async (req, res) => {
+  try {
+    const daftar = await storage.aset.riwayatAset(req.params.kode);
+    res.json(daftar);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Gagal membaca riwayat aset.' });
   }
 });
 

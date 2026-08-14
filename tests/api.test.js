@@ -21,6 +21,8 @@ function nyalakan() {
         EXCEL_FILE: path.join(tmp, 'riwayat.xlsx'),
         PDF_DIR: path.join(tmp, 'pdf'),
         NOMOR_FILE: path.join(tmp, 'nomor.json'),
+        ASET_FILE: path.join(tmp, 'aset.json'),
+        SURAT_ASET_FILE: path.join(tmp, 'surat_aset.json'),
       },
       stdio: 'ignore',
     });

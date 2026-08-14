@@ -13,6 +13,9 @@ const LABEL_KATEGORI = { penyerahan: 'Penyerahan', pengembalian: 'Pengembalian' 
 let cfg = { kota: 'Tangerang', deptPengelola: 'HR - Umum' };
 let editNomor = null;
 let semuaRiwayat = [];
+let semuaAset = [];
+let asetTerpilih = [];
+let editAsetKode = null;
 
 const PER_HALAMAN = 10;
 let halamanSekarang = 1;
@@ -54,6 +57,11 @@ function formHtml(s) {
       <div class="judul-kotak">Keterangan</div>
       <div class="isi">${escapeHtml(s.keterangan)}</div>
     </div>
+    ${s.aset && s.aset.length ? `
+    <div class="kotak">
+      <div class="judul-kotak">Aset</div>
+      <div class="isi">${s.aset.map((a) => escapeHtml(a.kode) + (a.nama ? ' — ' + escapeHtml(a.nama) : '')).join('<br>')}</div>
+    </div>` : ''}
     <div class="isi pernyataan">${pernyataan}</div>
     <div class="kotak">
       <div class="judul-kotak">Kategori</div>
@@ -99,6 +107,9 @@ function mulaiEdit(r) {
   form['departemen-penerima'].value = r.departemenPenerima || '';
   form.keterangan.value = r.keterangan || '';
   form.kategori.value = r.kategori === 'pengembalian' ? 'pengembalian' : 'penyerahan';
+  asetTerpilih = (r.aset || []).slice();
+  cariAsetEl.value = '';
+  renderDaftarAsetPilih();
   pesan.hidden = true;
   formSection.hidden = false;
   suratSection.hidden = true;
@@ -128,6 +139,7 @@ function ambilPayload() {
     departemenPenerima: form['departemen-penerima'].value,
     keterangan: form.keterangan.value,
     kategori: form.kategori.value,
+    aset: asetTerpilih,
   };
 }
 
@@ -154,8 +166,12 @@ form.addEventListener('submit', async (e) => {
     suratSection.hidden = false;
     form.reset();
     form.kategori.value = 'penyerahan';
+    asetTerpilih = [];
+    cariAsetEl.value = '';
+    renderDaftarAsetPilih();
     resetEdit();
     muatRiwayat();
+    muatAset();
   } catch (err) {
     tampilPesan(err.message, 'error');
   } finally {
@@ -167,6 +183,9 @@ form.addEventListener('submit', async (e) => {
 btnBatal.addEventListener('click', () => {
   form.reset();
   form.kategori.value = 'penyerahan';
+  asetTerpilih = [];
+  cariAsetEl.value = '';
+  renderDaftarAsetPilih();
   resetEdit();
 });
 
@@ -246,6 +265,7 @@ function tampilRiwayat() {
       <td>${escapeHtml(r.penerima)}</td>
       <td>${escapeHtml(r.departemenPenerima)}</td>
       <td>${escapeHtml(r.keterangan)}</td>
+      <td>${escapeHtml((r.aset || []).join(', '))}</td>
       <td class="aksi">
         <button class="btn-aksi" data-nomor="${nomor}" data-act="edit">Edit</button>
         <button class="btn-aksi hapus" data-nomor="${nomor}" data-act="hapus">Hapus</button>
@@ -327,5 +347,204 @@ async function muatConfig() {
   }
 }
 
+// --- Kelola Aset ---
+const cariAsetEl = document.getElementById('cari-aset');
+const asetPilihEl = document.getElementById('daftar-aset-pilih');
+const infoAsetPilih = document.getElementById('info-aset-pilih');
+const tbodyAset = document.querySelector('#tabel-aset tbody');
+const formAsetWrap = document.getElementById('form-aset-wrap');
+
+const LABEL_STATUS = { tersedia: 'Tersedia', dipakai: 'Dipakai', rusak: 'Rusak' };
+const LABEL_KONDISI = { baik: 'Baik', cukup: 'Cukup', rusak: 'Rusak' };
+
+function formatRupiah(n) {
+  return 'Rp ' + Number(n || 0).toLocaleString('id-ID');
+}
+
+function renderDaftarAsetPilih() {
+  const q = cariAsetEl.value.toLowerCase().trim();
+  const filtered = semuaAset.filter((a) =>
+    [a.kode, a.nama, a.kategori].join(' ').toLowerCase().includes(q)
+  );
+  asetPilihEl.innerHTML = '';
+  if (filtered.length === 0) {
+    asetPilihEl.innerHTML = '<div class="kosong-pilih">Tidak ada aset. Tambah dulu lewat Kelola Aset.</div>';
+    return;
+  }
+  filtered.forEach((a) => {
+    const label = document.createElement('label');
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.checked = asetTerpilih.includes(a.kode);
+    cb.addEventListener('change', () => {
+      if (cb.checked) {
+        if (!asetTerpilih.includes(a.kode)) asetTerpilih.push(a.kode);
+      } else {
+        asetTerpilih = asetTerpilih.filter((k) => k !== a.kode);
+      }
+      infoAsetPilih.textContent = `${asetTerpilih.length} aset dipilih`;
+      infoAsetPilih.className = 'pesan';
+      infoAsetPilih.hidden = asetTerpilih.length === 0;
+    });
+    const span = document.createElement('span');
+    span.textContent = `${a.kode} — ${a.nama}`;
+    const badge = document.createElement('span');
+    badge.className = `badge ${a.status}`;
+    badge.textContent = LABEL_STATUS[a.status] || a.status;
+    label.append(cb, span, badge);
+    asetPilihEl.appendChild(label);
+  });
+}
+
+function renderTabelAset() {
+  const q = document.getElementById('cari-aset-admin').value.toLowerCase().trim();
+  const filtered = semuaAset.filter((a) =>
+    [a.kode, a.nama, a.kategori].join(' ').toLowerCase().includes(q)
+  );
+  tbodyAset.innerHTML = '';
+  document.getElementById('kosong-aset').hidden = semuaAset.length > 0;
+  filtered.forEach((a) => {
+    const tr = document.createElement('tr');
+    const kode = escapeHtml(a.kode);
+    tr.innerHTML = `
+      <td>${kode}</td>
+      <td>${escapeHtml(a.nama)}</td>
+      <td>${escapeHtml(a.kategori)}</td>
+      <td>${formatRupiah(a.nilai)}</td>
+      <td>${escapeHtml(LABEL_KONDISI[a.kondisi] || a.kondisi)}</td>
+      <td><span class="badge ${a.status}">${escapeHtml(LABEL_STATUS[a.status] || a.status)}</span></td>
+      <td class="aksi">
+        <button class="btn-aksi" data-kode="${kode}" data-act="riwayat">Riwayat</button>
+        <button class="btn-aksi" data-kode="${kode}" data-act="edit">Edit</button>
+        <button class="btn-aksi hapus" data-kode="${kode}" data-act="hapus">Hapus</button>
+      </td>`;
+    tbodyAset.appendChild(tr);
+  });
+}
+
+function isiFormAset(a) {
+  document.getElementById('aset-kode').value = (a && a.kode) || '';
+  document.getElementById('aset-nama').value = (a && a.nama) || '';
+  document.getElementById('aset-kategori').value = (a && a.kategori) || '';
+  document.getElementById('aset-nilai').value = (a && a.nilai) || '';
+  document.getElementById('aset-kondisi').value = (a && a.kondisi) || 'baik';
+  document.getElementById('aset-status').value = (a && a.status) || 'tersedia';
+}
+
+function bukaFormAset(a) {
+  editAsetKode = a ? a.kode : null;
+  document.getElementById('judul-form-aset').textContent = a ? 'Edit Aset' : 'Tambah Aset';
+  isiFormAset(a);
+  formAsetWrap.hidden = false;
+  document.getElementById('pesan-aset').hidden = true;
+  document.getElementById('aset-kode').focus();
+}
+
+function tutupFormAset() {
+  editAsetKode = null;
+  formAsetWrap.hidden = true;
+}
+
+async function simpanAset() {
+  const pesanAset = document.getElementById('pesan-aset');
+  pesanAset.hidden = true;
+  const payload = {
+    kode: document.getElementById('aset-kode').value.trim(),
+    nama: document.getElementById('aset-nama').value.trim(),
+    kategori: document.getElementById('aset-kategori').value.trim(),
+    nilai: document.getElementById('aset-nilai').value,
+    kondisi: document.getElementById('aset-kondisi').value,
+    status: document.getElementById('aset-status').value,
+  };
+  const url = editAsetKode ? `/api/aset/${encodeURIComponent(editAsetKode)}` : '/api/aset';
+  const method = editAsetKode ? 'PUT' : 'POST';
+  try {
+    const res = await fetch(url, {
+      method,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Gagal menyimpan aset.');
+    tutupFormAset();
+    await muatAset();
+  } catch (err) {
+    pesanAset.textContent = err.message;
+    pesanAset.className = 'pesan error';
+    pesanAset.hidden = false;
+  }
+}
+
+async function hapusAsetAdmin(kode) {
+  if (!confirm(`Hapus aset ${kode}? Riwayat keterkaitannya ikut terhapus.`)) return;
+  const res = await fetch(`/api/aset/${encodeURIComponent(kode)}`, { method: 'DELETE' });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    alert(data.error || 'Gagal menghapus aset.');
+    return;
+  }
+  asetTerpilih = asetTerpilih.filter((k) => k !== kode);
+  await muatAset();
+}
+
+async function lihatRiwayatAset(kode) {
+  const aset = semuaAset.find((a) => a.kode === kode);
+  try {
+    const res = await fetch(`/api/aset/${encodeURIComponent(kode)}/riwayat`);
+    const data = await res.json();
+    document.getElementById('modal-aset-judul').textContent =
+      `Riwayat Aset: ${kode}${aset ? ' — ' + aset.nama : ''}`;
+    const isi = document.getElementById('modal-aset-isi');
+    if (!Array.isArray(data) || data.length === 0) {
+      isi.innerHTML = '<p class="pesan">Belum ada surat yang terkait aset ini.</p>';
+    } else {
+      isi.innerHTML = '<ul>' + data.map((s) =>
+        `<li>${escapeHtml(s.nomor)} — ${escapeHtml(LABEL_KATEGORI[s.kategori] || s.kategori)} — ${escapeHtml(s.tanggal)}<br><small>${escapeHtml(s.nama)} → ${escapeHtml(s.penerima)}</small></li>`
+      ).join('') + '</ul>';
+    }
+    document.getElementById('modal-aset').hidden = false;
+  } catch {
+    alert('Gagal memuat riwayat aset.');
+  }
+}
+
+async function muatAset() {
+  try {
+    const res = await fetch('/api/aset');
+    semuaAset = await res.json();
+    renderTabelAset();
+    renderDaftarAsetPilih();
+    const kategori = [...new Set(semuaAset.map((a) => a.kategori).filter(Boolean))];
+    document.getElementById('daftar-kategori-aset').innerHTML =
+      kategori.map((k) => `<option value="${escapeHtml(k)}">`).join('');
+  } catch {
+    /* biarkan */
+  }
+}
+
+document.getElementById('btn-aset-baru').addEventListener('click', () => bukaFormAset(null));
+document.getElementById('btn-aset-batal').addEventListener('click', tutupFormAset);
+document.getElementById('btn-aset-simpan').addEventListener('click', simpanAset);
+document.getElementById('cari-aset-admin').addEventListener('input', renderTabelAset);
+cariAsetEl.addEventListener('input', renderDaftarAsetPilih);
+tbodyAset.addEventListener('click', (e) => {
+  const btn = e.target.closest('button');
+  if (!btn) return;
+  const kode = btn.dataset.kode;
+  const act = btn.dataset.act;
+  if (act === 'riwayat') lihatRiwayatAset(kode);
+  else if (act === 'edit') {
+    const a = semuaAset.find((x) => x.kode === kode);
+    if (a) bukaFormAset(a);
+  } else if (act === 'hapus') hapusAsetAdmin(kode);
+});
+document.getElementById('btn-modal-tutup').addEventListener('click', () => {
+  document.getElementById('modal-aset').hidden = true;
+});
+document.getElementById('modal-aset').addEventListener('click', (e) => {
+  if (e.target.id === 'modal-aset') document.getElementById('modal-aset').hidden = true;
+});
+
 muatConfig();
 muatRiwayat();
+muatAset();

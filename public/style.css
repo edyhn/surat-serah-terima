@@ -218,6 +218,15 @@ button:active {
   flex: 1;
 }
 
+.btn-primary {
+  background: #0ea5e9;
+  color: #fff;
+}
+
+.btn-primary:hover {
+  background: #0284c7;
+}
+
 #btn-simpan:hover {
   background: #0284c7;
 }
@@ -530,6 +539,130 @@ td.aksi {
   color: #475569;
 }
 
+.daftar-aset-pilih {
+  max-height: 180px;
+  overflow-y: auto;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 8px;
+  margin-top: 6px;
+}
+
+.daftar-aset-pilih label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 500;
+  font-size: 13px;
+  margin: 4px 0;
+  padding: 4px 6px;
+  border-radius: 6px;
+}
+
+.daftar-aset-pilih label:hover {
+  background: #f1f5f9;
+}
+
+.daftar-aset-pilih .kosong-pilih {
+  color: #94a3b8;
+  font-size: 13px;
+  padding: 6px;
+}
+
+.badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.badge.tersedia {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.badge.dipakai {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.badge.rusak {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.form-aset {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 14px 16px;
+  margin-bottom: 14px;
+}
+
+.form-aset h3 {
+  margin: 0 0 6px;
+  font-size: 15px;
+}
+
+#tabel-aset {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+#tabel-aset th,
+#tabel-aset td {
+  border: 1px solid #e2e8f0;
+  padding: 8px;
+  text-align: left;
+}
+
+#tabel-aset th {
+  background: #f8fafc;
+  font-weight: 600;
+}
+
+#tabel-aset tr:nth-child(even) {
+  background: #f8fafc;
+}
+
+.modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+}
+
+.modal-box {
+  background: #fff;
+  border-radius: 12px;
+  padding: 20px;
+  width: min(520px, 92vw);
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+.modal-box h3 {
+  margin: 0 0 12px;
+  font-size: 16px;
+  border-bottom: 2px solid #0ea5e9;
+  padding-bottom: 8px;
+}
+
+.modal-box ul {
+  margin: 0 0 14px;
+  padding-left: 20px;
+  line-height: 1.8;
+}
+
+.modal-box .pesan {
+  margin-top: 0;
+}
+
 @media print {
   body {
     background: #fff;
@@ -543,6 +676,7 @@ td.aksi {
   header,
   #form-section,
   #riwayat-section,
+  #aset-section,
   #stats,
   .surat-actions {
     display: none !important;

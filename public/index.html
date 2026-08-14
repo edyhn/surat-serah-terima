@@ -71,6 +71,11 @@
         <label for="keterangan">Keterangan</label>
         <textarea id="keterangan" name="keterangan" required rows="2" placeholder="Contoh: Penyerahan Laptop Asus (Unit Only), di serahkan ke mba isti divisi FAT"></textarea>
 
+        <label for="cari-aset">Pilih Aset (opsional)</label>
+        <input type="text" id="cari-aset" placeholder="Cari aset untuk dipilih...">
+        <div id="daftar-aset-pilih" class="daftar-aset-pilih"></div>
+        <p id="info-aset-pilih" class="pesan" hidden></p>
+
         <fieldset>
           <legend>Kategori</legend>
           <label class="radio">
@@ -99,6 +104,82 @@
       <div id="surat" class="surat"></div>
     </section>
 
+    <section id="aset-section" class="card">
+      <h2>Kelola Aset</h2>
+      <div class="riwayat-head">
+        <input type="text" id="cari-aset-admin" placeholder="Cari kode / nama aset...">
+        <button type="button" id="btn-aset-baru" class="btn-sekunder">Tambah Aset</button>
+      </div>
+      <div id="form-aset-wrap" class="form-aset" hidden>
+        <h3 id="judul-form-aset">Tambah Aset</h3>
+        <div class="form-grid">
+          <div>
+            <label for="aset-kode">Kode Aset</label>
+            <input type="text" id="aset-kode" placeholder="mis. INV/IT-001">
+          </div>
+          <div>
+            <label for="aset-nama">Nama Aset</label>
+            <input type="text" id="aset-nama" placeholder="mis. Laptop Asus">
+          </div>
+          <div>
+            <label for="aset-kategori">Kategori</label>
+            <input type="text" id="aset-kategori" list="daftar-kategori-aset" placeholder="mis. Laptop, Monitor, HP">
+          </div>
+          <div>
+            <label for="aset-nilai">Nilai (Rp)</label>
+            <input type="number" id="aset-nilai" min="0" step="1000" placeholder="0">
+          </div>
+          <div>
+            <label for="aset-kondisi">Kondisi</label>
+            <select id="aset-kondisi">
+              <option value="baik">Baik</option>
+              <option value="cukup">Cukup</option>
+              <option value="rusak">Rusak</option>
+            </select>
+          </div>
+          <div>
+            <label for="aset-status">Status</label>
+            <select id="aset-status">
+              <option value="tersedia">Tersedia</option>
+              <option value="dipakai">Dipakai</option>
+              <option value="rusak">Rusak</option>
+            </select>
+          </div>
+        </div>
+        <datalist id="daftar-kategori-aset"></datalist>
+        <div class="aksi-form">
+          <button type="button" id="btn-aset-simpan" class="btn-primary">Simpan Aset</button>
+          <button type="button" id="btn-aset-batal" class="btn-sekunder">Batal</button>
+        </div>
+        <p id="pesan-aset" class="pesan" hidden></p>
+      </div>
+      <div class="table-scroll">
+        <table id="tabel-aset">
+          <thead>
+            <tr>
+              <th>Kode</th>
+              <th>Nama</th>
+              <th>Kategori</th>
+              <th>Nilai</th>
+              <th>Kondisi</th>
+              <th>Status</th>
+              <th>Aksi</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <p id="kosong-aset" class="pesan">Belum ada aset.</p>
+    </section>
+
+    <div id="modal-aset" class="modal" hidden>
+      <div class="modal-box">
+        <h3 id="modal-aset-judul"></h3>
+        <div id="modal-aset-isi"></div>
+        <button type="button" id="btn-modal-tutup" class="btn-sekunder">Tutup</button>
+      </div>
+    </div>
+
     <section id="riwayat-section" class="card">
       <div class="riwayat-head">
         <h2>Riwayat</h2>
@@ -125,6 +206,7 @@
               <th>Penerima</th>
               <th>Dept. Penerima</th>
               <th>Keterangan</th>
+              <th>Aset</th>
               <th>Aksi</th>
             </tr>
           </thead>
