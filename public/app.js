@@ -16,6 +16,7 @@ let semuaRiwayat = [];
 let semuaAset = [];
 let asetTerpilih = [];
 let editAsetKode = null;
+let padsTtd = {};
 
 const PER_HALAMAN = 10;
 let halamanSekarang = 1;
@@ -71,21 +72,19 @@ function formHtml(s) {
       </div>
     </div>
     <div class="ttd3">
-      <div class="ttd-col">
-        <div>Yang Menyerahkan,</div>
-        <div class="garis"></div>
-        <div>(${escapeHtml(s.nama)})</div>
-      </div>
-      <div class="ttd-col">
-        <div>Yang Menerima,</div>
-        <div class="garis"></div>
-        <div>(${escapeHtml(s.penerima)})</div>
-      </div>
-      <div class="ttd-col">
-        <div>HRD,</div>
-        <div class="garis"></div>
-        <div>(................)</div>
-      </div>
+      ${ttdKolom('Yang Menyerahkan,', s.nama, s.ttd && s.ttd.menyerahkan)}
+      ${ttdKolom('Yang Menerima,', s.penerima, s.ttd && s.ttd.menerima)}
+      ${ttdKolom('HRD,', '', s.ttd && s.ttd.hrd)}
+    </div>`;
+}
+
+function ttdKolom(label, nama, dataUrl) {
+  return `
+    <div class="ttd-col${dataUrl ? ' has-ttd' : ''}">
+      <div>${label}</div>
+      ${dataUrl ? `<img class="ttd-img" src="${dataUrl}" alt="ttd">` : ''}
+      <div class="garis"></div>
+      <div>${nama ? '(' + escapeHtml(nama) + ')' : '(................)'}</div>
     </div>`;
 }
 
@@ -110,6 +109,7 @@ function mulaiEdit(r) {
   asetTerpilih = (r.aset || []).slice();
   cariAsetEl.value = '';
   renderDaftarAsetPilih();
+  bersihkanSemuaPad();
   pesan.hidden = true;
   formSection.hidden = false;
   suratSection.hidden = true;
@@ -140,6 +140,11 @@ function ambilPayload() {
     keterangan: form.keterangan.value,
     kategori: form.kategori.value,
     aset: asetTerpilih,
+    ttd: {
+      menyerahkan: captureTtd('menyerahkan'),
+      menerima: captureTtd('menerima'),
+      hrd: captureTtd('hrd'),
+    },
   };
 }
 
@@ -169,6 +174,7 @@ form.addEventListener('submit', async (e) => {
     asetTerpilih = [];
     cariAsetEl.value = '';
     renderDaftarAsetPilih();
+    bersihkanSemuaPad();
     resetEdit();
     muatRiwayat();
     muatAset();
@@ -186,6 +192,7 @@ btnBatal.addEventListener('click', () => {
   asetTerpilih = [];
   cariAsetEl.value = '';
   renderDaftarAsetPilih();
+  bersihkanSemuaPad();
   resetEdit();
 });
 
@@ -193,6 +200,9 @@ document.getElementById('btn-cetak').addEventListener('click', () => window.prin
 
 document.getElementById('btn-baru').addEventListener('click', () => {
   resetEdit();
+  form.reset();
+  form.kategori.value = 'penyerahan';
+  bersihkanSemuaPad();
   suratSection.hidden = true;
   formSection.hidden = false;
   document.getElementById('nama').focus();
@@ -563,6 +573,96 @@ async function muatAset() {
     /* biarkan */
   }
 }
+
+function inisialisasiPad() {
+  const pads = {};
+  document.querySelectorAll('.ttd-pad').forEach((canvas) => {
+    const pihak = canvas.dataset.pihak;
+    const pad = { canvas, ctx: canvas.getContext('2d'), isi: false, menggambar: false };
+    canvas.addEventListener('pointerdown', (e) => {
+      const { x, y } = posisiPad(e, pad.canvas);
+      pad.ctx.strokeStyle = '#1e293b';
+      pad.ctx.lineWidth = 2.5;
+      pad.ctx.lineCap = 'round';
+      pad.ctx.lineJoin = 'round';
+      pad.ctx.beginPath();
+      pad.ctx.moveTo(x, y);
+      pad.ctx.lineTo(x + 0.1, y + 0.1);
+      pad.ctx.stroke();
+      pad.menggambar = true;
+      pad.isi = true;
+    });
+    canvas.addEventListener('pointermove', (e) => {
+      if (!pad.menggambar) return;
+      const { x, y } = posisiPad(e, pad.canvas);
+      pad.ctx.lineTo(x, y);
+      pad.ctx.stroke();
+    });
+    canvas.addEventListener('pointerup', () => (pad.menggambar = false));
+    canvas.addEventListener('pointerleave', () => (pad.menggambar = false));
+    pads[pihak] = pad;
+  });
+  return pads;
+}
+
+function posisiPad(e, canvas) {
+  const r = canvas.getBoundingClientRect();
+  return {
+    x: (e.clientX - r.left) * (canvas.width / r.width),
+    y: (e.clientY - r.top) * (canvas.height / r.height),
+  };
+}
+
+function hapusPad(pad) {
+  pad.ctx.fillStyle = '#ffffff';
+  pad.ctx.fillRect(0, 0, pad.canvas.width, pad.canvas.height);
+  pad.isi = false;
+  pad.menggambar = false;
+}
+
+function bersihkanSemuaPad() {
+  Object.values(padsTtd).forEach(hapusPad);
+}
+
+function unggahPad(pad, file) {
+  const url = URL.createObjectURL(file);
+  const img = new Image();
+  img.onload = () => {
+    const ctx = pad.ctx;
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, pad.canvas.width, pad.canvas.height);
+    const skala = Math.min(pad.canvas.width / img.width, pad.canvas.height / img.height);
+    const w = img.width * skala;
+    const h = img.height * skala;
+    ctx.drawImage(img, (pad.canvas.width - w) / 2, (pad.canvas.height - h) / 2, w, h);
+    URL.revokeObjectURL(url);
+    pad.isi = true;
+  };
+  img.onerror = () => URL.revokeObjectURL(url);
+  img.src = url;
+}
+
+function captureTtd(pihak) {
+  const pad = padsTtd[pihak];
+  if (!pad || !pad.isi) return '';
+  return pad.canvas.toDataURL('image/png');
+}
+
+padsTtd = inisialisasiPad();
+document.querySelectorAll('.ttd-unggah').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    document.querySelector(`.ttd-file[data-pihak="${btn.dataset.pihak}"]`).click();
+  });
+});
+document.querySelectorAll('.ttd-file').forEach((input) => {
+  input.addEventListener('change', () => {
+    if (input.files && input.files[0]) unggahPad(padsTtd[input.dataset.pihak], input.files[0]);
+    input.value = '';
+  });
+});
+document.querySelectorAll('.ttd-hapus').forEach((btn) => {
+  btn.addEventListener('click', () => hapusPad(padsTtd[btn.dataset.pihak]));
+});
 
 document.getElementById('btn-aset-baru').addEventListener('click', () => bukaFormAset(null));
 document.getElementById('btn-aset-batal').addEventListener('click', tutupFormAset);

@@ -453,6 +453,69 @@ button:active {
   margin: 110px 8px 6px;
 }
 
+.surat .ttd-col.has-ttd .garis {
+  margin-top: 8px;
+}
+
+.ttd-img {
+  display: block;
+  margin: 10px auto 0;
+  width: 110px;
+  height: 33px;
+  object-fit: contain;
+}
+
+.ttd-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.ttd-pad-wrap {
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 8px;
+  background: #f8fafc;
+}
+
+.ttd-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #475569;
+  margin-bottom: 6px;
+  text-align: center;
+}
+
+.ttd-pad {
+  width: 100%;
+  height: 120px;
+  background: #fff;
+  border: 1px dashed #cbd5e1;
+  border-radius: 6px;
+  touch-action: none;
+  display: block;
+  cursor: crosshair;
+}
+
+.ttd-aksi {
+  display: flex;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.ttd-aksi .btn-sekunder {
+  flex: 1;
+  font-size: 12px;
+  padding: 6px 8px;
+}
+
+@media (max-width: 640px) {
+  .ttd-row {
+    grid-template-columns: 1fr;
+  }
+}
+
 table#tabel-riwayat {
   width: 100%;
   border-collapse: collapse;

@@ -103,3 +103,34 @@ test('api: alur lengkap POST-GET-PUT-DELETE + PDF', async () => {
     child.kill();
   }
 });
+
+test('api: tanda tangan digital disertakan dalam PDF', async () => {
+  const child = await nyalakan();
+  try {
+    const png = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+    const payload = {
+      nama: 'Edy',
+      departemen: 'HCM',
+      penerima: 'Isti',
+      departemenPenerima: 'FAT',
+      keterangan: 'Laptop Asus',
+      kategori: 'penyerahan',
+      ttd: {
+        menyerahkan: 'data:image/png;base64,' + png,
+        menerima: 'data:image/png;base64,' + png,
+        hrd: 'data:image/png;base64,' + png,
+      },
+    };
+
+    const buat = await json('POST', '/api/surat', payload);
+    assert.equal(buat.status, 200);
+    assert.ok(buat.data.ttd, 'respon harus memuat ttd');
+    assert.equal(buat.data.ttd.menyerahkan, 'data:image/png;base64,' + png);
+
+    const pdf = await fetch(`${BASE}/pdf/${`001-SRT-ST-${tahun}`}.pdf`);
+    assert.equal(pdf.status, 200);
+    assert.ok((await pdf.arrayBuffer()).byteLength > 1000, 'PDF dengan ttd harus dihasilkan');
+  } finally {
+    child.kill();
+  }
+});

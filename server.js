@@ -8,7 +8,7 @@ const { buatPdf, dirPdf } = require('./lib/pdf');
 const storage = require('./lib/storage');
 
 const app = express();
-app.use(express.json());
+app.use(express.json({ limit: '10mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 app.use('/pdf', express.static(dirPdf()));
 
@@ -27,6 +27,29 @@ function validasiData(body) {
   if (kosong) return { error: 'Nama, departemen, dan keterangan (kedua pihak) wajib diisi.' };
   if (!['penyerahan', 'pengembalian'].includes(data.kategori)) return { error: 'Kategori tidak valid.' };
   return { data };
+}
+
+const PIHAK_TTD = ['menyerahkan', 'menerima', 'hrd'];
+
+function ambilTtd(obj) {
+  const out = {};
+  PIHAK_TTD.forEach((k) => {
+    const v = obj && obj[k];
+    if (typeof v === 'string' && v.startsWith('data:image/')) {
+      const b64 = v.slice(v.indexOf(',') + 1);
+      const buf = Buffer.from(b64, 'base64');
+      if (buf.length && buf.length <= 1024 * 1024) out[k] = buf;
+    }
+  });
+  return out;
+}
+
+function ttdDataUrl(ttd) {
+  const out = {};
+  PIHAK_TTD.forEach((k) => {
+    if (ttd && ttd[k]) out[k] = 'data:image/png;base64,' + ttd[k].toString('base64');
+  });
+  return out;
 }
 
 function validasiAset(body) {
@@ -179,9 +202,10 @@ app.post('/api/surat', async (req, res) => {
       await storage.aset.aturStatus(kodeAset, hasil.data.kategori === 'penyerahan' ? 'dipakai' : 'tersedia');
     }
     surat.aset = await ambilInfoAset(kodeAset);
+    surat.ttd = ambilTtd(req.body.ttd);
     const namaFile = await simpanSuratDanPdf(surat);
 
-    res.json({ ...surat, pdf: namaFile });
+    res.json({ ...surat, pdf: namaFile, ttd: ttdDataUrl(surat.ttd) });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Terjadi kesalahan pada server.' });
@@ -203,9 +227,10 @@ app.put('/api/surat/:nomor', async (req, res) => {
     await storage.aset.tautkanSurat(surat.nomor, kodeAset);
     await storage.aset.aturStatus(kodeAset, hasil.data.kategori === 'penyerahan' ? 'dipakai' : 'tersedia');
     surat.aset = await ambilInfoAset(kodeAset);
+    surat.ttd = ambilTtd(req.body.ttd);
     const namaFile = await simpanSuratDanPdf(surat);
 
-    res.json({ ...surat, pdf: namaFile });
+    res.json({ ...surat, pdf: namaFile, ttd: ttdDataUrl(surat.ttd) });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Terjadi kesalahan pada server.' });

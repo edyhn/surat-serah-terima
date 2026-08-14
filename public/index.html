@@ -88,6 +88,40 @@
           </label>
         </fieldset>
 
+        <fieldset id="ttd-section">
+          <legend>Tanda Tangan Digital (opsional)</legend>
+          <p class="petunjuk">Gambar tanda tangan langsung di kotak, atau unggah gambar tanda tangan (scan). Bisa dikosongkan.</p>
+          <div class="ttd-row">
+            <div class="ttd-pad-wrap">
+              <div class="ttd-label">Yang Menyerahkan</div>
+              <canvas class="ttd-pad" data-pihak="menyerahkan" width="500" height="150"></canvas>
+              <div class="ttd-aksi">
+                <button type="button" class="btn-sekunder ttd-unggah" data-pihak="menyerahkan">Unggah</button>
+                <button type="button" class="btn-sekunder ttd-hapus" data-pihak="menyerahkan">Hapus</button>
+                <input type="file" class="ttd-file" data-pihak="menyerahkan" accept="image/*" hidden>
+              </div>
+            </div>
+            <div class="ttd-pad-wrap">
+              <div class="ttd-label">Yang Menerima</div>
+              <canvas class="ttd-pad" data-pihak="menerima" width="500" height="150"></canvas>
+              <div class="ttd-aksi">
+                <button type="button" class="btn-sekunder ttd-unggah" data-pihak="menerima">Unggah</button>
+                <button type="button" class="btn-sekunder ttd-hapus" data-pihak="menerima">Hapus</button>
+                <input type="file" class="ttd-file" data-pihak="menerima" accept="image/*" hidden>
+              </div>
+            </div>
+            <div class="ttd-pad-wrap">
+              <div class="ttd-label">HRD</div>
+              <canvas class="ttd-pad" data-pihak="hrd" width="500" height="150"></canvas>
+              <div class="ttd-aksi">
+                <button type="button" class="btn-sekunder ttd-unggah" data-pihak="hrd">Unggah</button>
+                <button type="button" class="btn-sekunder ttd-hapus" data-pihak="hrd">Hapus</button>
+                <input type="file" class="ttd-file" data-pihak="hrd" accept="image/*" hidden>
+              </div>
+            </div>
+          </div>
+        </fieldset>
+
         <div class="aksi-form">
           <button type="submit" id="btn-simpan">Simpan &amp; Tampilkan Surat</button>
           <button type="button" id="btn-batal" class="btn-sekunder" hidden>Batal Edit</button>
