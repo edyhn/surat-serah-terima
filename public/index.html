@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Aplikasi Surat Serah Terima</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Surat Serah Terima</h1>
+      <p>Isi form, nomor surat & tanggal dibuat otomatis, lalu backup tersimpan ke Excel dan PDF.</p>
+    </header>
+
+    <section class="stats" id="stats">
+      <div class="stat-card accent-blue">
+        <div class="stat-top">
+          <span class="stat-ikon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3h7l5 5v13a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/><path d="M14 3v5h5"/></svg></span>
+          <span class="stat-nilai" id="stat-total">0</span>
+        </div>
+        <div class="stat-label">Total Surat</div>
+      </div>
+      <div class="stat-card accent-emerald">
+        <div class="stat-top">
+          <span class="stat-ikon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></span>
+          <span class="stat-nilai" id="stat-bulan">0</span>
+        </div>
+        <div class="stat-label">Surat Bulan Ini</div>
+      </div>
+      <div class="stat-card accent-violet">
+        <div class="stat-top">
+          <span class="stat-ikon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg></span>
+          <span class="stat-nilai" id="stat-ps">0</span>
+        </div>
+        <div class="stat-label">Penyerahan</div>
+      </div>
+      <div class="stat-card accent-amber">
+        <div class="stat-top">
+          <span class="stat-ikon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg></span>
+          <span class="stat-nilai" id="stat-pk">0</span>
+        </div>
+        <div class="stat-label">Pengembalian</div>
+      </div>
+    </section>
+
+    <section id="form-section" class="card">
+      <h2>Form Surat Serah Terima</h2>
+      <form id="form-surat">
+        <div class="form-grid">
+          <div>
+            <label for="nama">Nama yang Menyerahkan</label>
+            <input type="text" id="nama" name="nama" required autocomplete="name" placeholder="Nama lengkap penyerah">
+          </div>
+          <div>
+            <label for="penerima">Nama yang Menerima</label>
+            <input type="text" id="penerima" name="penerima" required placeholder="Nama lengkap penerima">
+          </div>
+          <div>
+            <label for="departemen">Departemen Penyerah</label>
+            <input type="text" id="departemen" name="departemen" required list="daftar-departemen" placeholder="Pilih atau ketik departemen">
+          </div>
+          <div>
+            <label for="departemen-penerima">Departemen Penerima</label>
+            <input type="text" id="departemen-penerima" name="departemen-penerima" required list="daftar-departemen" placeholder="Pilih atau ketik departemen">
+          </div>
+        </div>
+
+        <datalist id="daftar-departemen"></datalist>
+
+        <label for="keterangan">Keterangan</label>
+        <textarea id="keterangan" name="keterangan" required rows="2" placeholder="Contoh: Penyerahan Laptop Asus (Unit Only), di serahkan ke mba isti divisi FAT"></textarea>
+
+        <fieldset>
+          <legend>Kategori</legend>
+          <label class="radio">
+            <input type="radio" name="kategori" value="penyerahan" checked>
+            Penyerahan
+          </label>
+          <label class="radio">
+            <input type="radio" name="kategori" value="pengembalian">
+            Pengembalian
+          </label>
+        </fieldset>
+
+        <div class="aksi-form">
+          <button type="submit" id="btn-simpan">Simpan &amp; Tampilkan Surat</button>
+          <button type="button" id="btn-batal" class="btn-sekunder" hidden>Batal Edit</button>
+        </div>
+      </form>
+      <p id="pesan" class="pesan" hidden></p>
+    </section>
+
+    <section id="surat-section" class="surat-wrap" hidden>
+      <div class="surat-actions">
+        <button id="btn-cetak" type="button">Cetak / Simpan PDF</button>
+        <button id="btn-baru" type="button">Buat Surat Baru</button>
+      </div>
+      <div id="surat" class="surat"></div>
+    </section>
+
+    <section id="riwayat-section" class="card">
+      <div class="riwayat-head">
+        <h2>Riwayat</h2>
+        <button type="button" id="btn-unduh" class="btn-sekunder">Unduh Excel</button>
+      </div>
+      <div class="filter-bar">
+        <input type="text" id="cari" placeholder="Cari nomor, nama, keterangan...">
+        <select id="filter-kategori">
+          <option value="">Semua Kategori</option>
+          <option value="penyerahan">Penyerahan</option>
+          <option value="pengembalian">Pengembalian</option>
+        </select>
+      </div>
+      <div class="table-scroll">
+        <table id="tabel-riwayat">
+          <thead>
+            <tr>
+              <th>No</th>
+              <th>No Surat</th>
+              <th>Tanggal</th>
+              <th>Kategori</th>
+              <th>Nama</th>
+              <th>Departemen</th>
+              <th>Penerima</th>
+              <th>Dept. Penerima</th>
+              <th>Keterangan</th>
+              <th>Aksi</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <div id="paginasi" class="paginasi"></div>
+      <p id="kosong" class="pesan">Belum ada data.</p>
+    </section>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

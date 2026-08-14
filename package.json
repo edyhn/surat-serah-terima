@@ -1,0 +1,17 @@
+{
+  "name": "tanda-terima",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "start": "node server.js",
+    "seed": "node seed.js",
+    "test": "node --test \"tests/*.test.js\""
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.112.3",
+    "docx": "^9.7.1",
+    "exceljs": "^4.4.0",
+    "express": "^4.19.2",
+    "pdfkit": "^0.15.0"
+  }
+}
