@@ -114,8 +114,8 @@
         <h3 id="judul-form-aset">Tambah Aset</h3>
         <div class="form-grid">
           <div>
-            <label for="aset-kode">Kode Aset</label>
-            <input type="text" id="aset-kode" placeholder="mis. INV/IT-001">
+            <label for="aset-kode">Kode Aset <small>(otomatis)</small></label>
+            <input type="text" id="aset-kode" readonly placeholder="Otomatis dari kategori">
           </div>
           <div>
             <label for="aset-nama">Nama Aset</label>
@@ -127,7 +127,10 @@
           </div>
           <div>
             <label for="aset-nilai">Nilai (Rp)</label>
-            <input type="number" id="aset-nilai" min="0" step="1000" placeholder="0">
+            <div class="rp-group">
+              <span class="rp-prefix">Rp</span>
+              <input type="number" id="aset-nilai" min="0" step="1000" placeholder="0">
+            </div>
           </div>
           <div>
             <label for="aset-kondisi">Kondisi</label>

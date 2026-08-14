@@ -436,6 +436,22 @@ function renderTabelAset() {
   });
 }
 
+function kodeAsetOtomatis(kategori) {
+  const seg =
+    String(kategori || '')
+      .trim()
+      .toUpperCase()
+      .replace(/[^A-Z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '') || 'ASET';
+  let maks = 0;
+  const pola = new RegExp(`^INV/${seg.replace(/[-/\\]/g, '\\-')}-(\\d+)$`);
+  semuaAset.forEach((a) => {
+    const m = pola.exec(String(a.kode).toUpperCase());
+    if (m) maks = Math.max(maks, parseInt(m[1], 10));
+  });
+  return `INV/${seg}-${String(maks + 1).padStart(3, '0')}`;
+}
+
 function isiFormAset(a) {
   document.getElementById('aset-kode').value = (a && a.kode) || '';
   document.getElementById('aset-nama').value = (a && a.nama) || '';
@@ -449,9 +465,12 @@ function bukaFormAset(a) {
   editAsetKode = a ? a.kode : null;
   document.getElementById('judul-form-aset').textContent = a ? 'Edit Aset' : 'Tambah Aset';
   isiFormAset(a);
+  if (!a) {
+    document.getElementById('aset-kode').value = kodeAsetOtomatis(document.getElementById('aset-kategori').value);
+  }
   formAsetWrap.hidden = false;
   document.getElementById('pesan-aset').hidden = true;
-  document.getElementById('aset-kode').focus();
+  document.getElementById('aset-nama').focus();
 }
 
 function tutupFormAset() {
@@ -541,6 +560,11 @@ document.getElementById('btn-aset-batal').addEventListener('click', tutupFormAse
 document.getElementById('btn-aset-simpan').addEventListener('click', simpanAset);
 document.getElementById('cari-aset-admin').addEventListener('input', renderTabelAset);
 cariAsetEl.addEventListener('input', renderDaftarAsetPilih);
+document.getElementById('aset-kategori').addEventListener('input', () => {
+  if (!editAsetKode) {
+    document.getElementById('aset-kode').value = kodeAsetOtomatis(document.getElementById('aset-kategori').value);
+  }
+});
 tbodyAset.addEventListener('click', (e) => {
   const btn = e.target.closest('button');
   if (!btn) return;

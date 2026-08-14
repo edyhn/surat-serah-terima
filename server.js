@@ -33,7 +33,6 @@ function validasiAset(body) {
   const bersih = (v) => (typeof v === 'string' ? v.trim() : '');
   const kode = bersih(body.kode);
   const nama = bersih(body.nama);
-  if (!kode) return { error: 'Kode aset wajib diisi.' };
   if (!nama) return { error: 'Nama aset wajib diisi.' };
   const nilai = Number(body.nilai);
   const status = bersih(body.status);
@@ -50,6 +49,23 @@ function validasiAset(body) {
       status: STATUS_VALID.includes(status) ? status : 'tersedia',
     },
   };
+}
+
+async function autoKodeAset(kategori) {
+  const seg =
+    String(kategori || '')
+      .trim()
+      .toUpperCase()
+      .replace(/[^A-Z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '') || 'ASET';
+  const daftar = await storage.aset.daftarAset();
+  const pola = new RegExp(`^INV/${seg.replace(/[-/\\]/g, '\\-')}-(\\d+)$`);
+  let maks = 0;
+  daftar.forEach((a) => {
+    const m = pola.exec(String(a.kode).toUpperCase());
+    if (m) maks = Math.max(maks, parseInt(m[1], 10));
+  });
+  return `INV/${seg}-${String(maks + 1).padStart(3, '0')}`;
 }
 
 const KONDISI_LABEL = {
@@ -235,6 +251,7 @@ app.post('/api/aset', async (req, res) => {
   try {
     const hasil = validasiAset(req.body || {});
     if (hasil.error) return res.status(400).json({ error: hasil.error });
+    if (!hasil.data.kode) hasil.data.kode = await autoKodeAset(hasil.data.kategori);
     const aset = await storage.aset.tambahAset(hasil.data);
     res.json(aset);
   } catch (err) {
