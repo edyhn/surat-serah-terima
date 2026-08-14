@@ -375,6 +375,15 @@ function formatRupiah(n) {
   return 'Rp ' + Number(n || 0).toLocaleString('id-ID');
 }
 
+function formatRibuan(teks) {
+  const digit = String(teks || '').replace(/\D/g, '').replace(/^0+(?=\d)/, '').slice(0, 15);
+  return digit ? digit.replace(/\B(?=(\d{3})+(?!\d))/g, '.') : '';
+}
+
+function formatNilaiInput() {
+  document.getElementById('aset-nilai').value = formatRibuan(document.getElementById('aset-nilai').value);
+}
+
 function renderDaftarAsetPilih() {
   const q = cariAsetEl.value.toLowerCase().trim();
   const filtered = semuaAset.filter((a) =>
@@ -456,7 +465,7 @@ function isiFormAset(a) {
   document.getElementById('aset-kode').value = (a && a.kode) || '';
   document.getElementById('aset-nama').value = (a && a.nama) || '';
   document.getElementById('aset-kategori').value = (a && a.kategori) || '';
-  document.getElementById('aset-nilai').value = (a && a.nilai) || '';
+  document.getElementById('aset-nilai').value = a && a.nilai ? formatRibuan(String(a.nilai)) : '';
   document.getElementById('aset-kondisi').value = (a && a.kondisi) || 'baru';
   document.getElementById('aset-status').value = (a && a.status) || 'tersedia';
 }
@@ -485,7 +494,7 @@ async function simpanAset() {
     kode: document.getElementById('aset-kode').value.trim(),
     nama: document.getElementById('aset-nama').value.trim(),
     kategori: document.getElementById('aset-kategori').value.trim(),
-    nilai: document.getElementById('aset-nilai').value,
+    nilai: document.getElementById('aset-nilai').value.replace(/\D/g, ''),
     kondisi: document.getElementById('aset-kondisi').value,
     status: document.getElementById('aset-status').value,
   };
@@ -565,6 +574,7 @@ document.getElementById('aset-kategori').addEventListener('input', () => {
     document.getElementById('aset-kode').value = kodeAsetOtomatis(document.getElementById('aset-kategori').value);
   }
 });
+document.getElementById('aset-nilai').addEventListener('input', formatNilaiInput);
 tbodyAset.addEventListener('click', (e) => {
   const btn = e.target.closest('button');
   if (!btn) return;
