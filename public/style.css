@@ -216,7 +216,6 @@ button:active {
 }
 
 #btn-simpan {
-  margin-top: 18px;
   background: #0ea5e9;
   color: #fff;
   flex: 1;
@@ -227,10 +226,7 @@ button:active {
   color: #fff;
 }
 
-.btn-primary:hover {
-  background: #0284c7;
-}
-
+.btn-primary:hover,
 #btn-simpan:hover {
   background: #0284c7;
 }
@@ -241,7 +237,6 @@ button:active {
 }
 
 .btn-sekunder {
-  margin-top: 18px;
   background: #e2e8f0;
   color: #334155;
 }
@@ -253,6 +248,11 @@ button:active {
 .aksi-form {
   display: flex;
   gap: 10px;
+  margin-top: 18px;
+}
+
+.aksi-form button {
+  flex: 1;
 }
 
 .pesan {
@@ -455,6 +455,16 @@ table#tabel-riwayat tbody tr:hover {
   align-items: center;
   gap: 10px;
   margin-bottom: 12px;
+}
+
+.riwayat-head input {
+  flex: 1;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  font-size: 14px;
+  font-family: inherit;
 }
 
 .riwayat-head h2 {
@@ -665,6 +675,11 @@ td.aksi {
 
 .modal-box .pesan {
   margin-top: 0;
+}
+
+.modal-box .btn-sekunder {
+  display: block;
+  margin: 14px 0 0 auto;
 }
 
 @media print {
