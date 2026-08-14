@@ -606,6 +606,21 @@ td.aksi {
   color: #b91c1c;
 }
 
+.badge.perbaikan {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.badge.hilang {
+  background: #f3e8ff;
+  color: #6b21a8;
+}
+
+.badge.dihapus {
+  background: #f1f5f9;
+  color: #475569;
+}
+
 .form-aset {
   background: #f8fafc;
   border: 1px solid #e2e8f0;

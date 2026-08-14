@@ -37,17 +37,29 @@ function validasiAset(body) {
   if (!nama) return { error: 'Nama aset wajib diisi.' };
   const nilai = Number(body.nilai);
   const status = bersih(body.status);
+  const kondisi = bersih(body.kondisi);
+  const KONDISI_VALID = ['baru', 'sangat-baik', 'baik', 'cukup', 'rusak-ringan', 'rusak-berat'];
+  const STATUS_VALID = ['tersedia', 'dipakai', 'perbaikan', 'rusak', 'hilang', 'dihapus'];
   return {
     data: {
       kode,
       nama,
       kategori: bersih(body.kategori),
       nilai: Number.isFinite(nilai) && nilai > 0 ? nilai : 0,
-      kondisi: bersih(body.kondisi) || 'baik',
-      status: ['tersedia', 'dipakai', 'rusak'].includes(status) ? status : 'tersedia',
+      kondisi: KONDISI_VALID.includes(kondisi) ? kondisi : 'baik',
+      status: STATUS_VALID.includes(status) ? status : 'tersedia',
     },
   };
 }
+
+const KONDISI_LABEL = {
+  baru: 'Baru',
+  'sangat-baik': 'Sangat Baik',
+  baik: 'Baik',
+  cukup: 'Cukup',
+  'rusak-ringan': 'Rusak Ringan',
+  'rusak-berat': 'Rusak Berat',
+};
 
 async function ambilInfoAset(kodeAset) {
   if (!kodeAset || kodeAset.length === 0) return [];
@@ -56,7 +68,7 @@ async function ambilInfoAset(kodeAset) {
   return kodeAset.map((k) => {
     const a = map.get(String(k));
     return a
-      ? { kode: a.kode, nama: a.nama, kondisi: a.kondisi, status: a.status }
+      ? { kode: a.kode, nama: a.nama, kondisi: KONDISI_LABEL[a.kondisi] || a.kondisi, status: a.status }
       : { kode: String(k), nama: '', kondisi: '', status: '' };
   });
 }

@@ -354,8 +354,22 @@ const infoAsetPilih = document.getElementById('info-aset-pilih');
 const tbodyAset = document.querySelector('#tabel-aset tbody');
 const formAsetWrap = document.getElementById('form-aset-wrap');
 
-const LABEL_STATUS = { tersedia: 'Tersedia', dipakai: 'Dipakai', rusak: 'Rusak' };
-const LABEL_KONDISI = { baik: 'Baik', cukup: 'Cukup', rusak: 'Rusak' };
+const LABEL_STATUS = {
+  tersedia: 'Tersedia',
+  dipakai: 'Dipakai',
+  perbaikan: 'Dalam Perbaikan',
+  rusak: 'Rusak',
+  hilang: 'Hilang',
+  dihapus: 'Dihapus',
+};
+const LABEL_KONDISI = {
+  baru: 'Baru',
+  'sangat-baik': 'Sangat Baik',
+  baik: 'Baik',
+  cukup: 'Cukup',
+  'rusak-ringan': 'Rusak Ringan',
+  'rusak-berat': 'Rusak Berat',
+};
 
 function formatRupiah(n) {
   return 'Rp ' + Number(n || 0).toLocaleString('id-ID');
@@ -427,7 +441,7 @@ function isiFormAset(a) {
   document.getElementById('aset-nama').value = (a && a.nama) || '';
   document.getElementById('aset-kategori').value = (a && a.kategori) || '';
   document.getElementById('aset-nilai').value = (a && a.nilai) || '';
-  document.getElementById('aset-kondisi').value = (a && a.kondisi) || 'baik';
+  document.getElementById('aset-kondisi').value = (a && a.kondisi) || 'baru';
   document.getElementById('aset-status').value = (a && a.status) || 'tersedia';
 }
 
