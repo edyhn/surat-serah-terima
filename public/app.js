@@ -75,7 +75,35 @@ function formHtml(s) {
       ${ttdKolom('Yang Menyerahkan,', s.nama, s.ttd && s.ttd.menyerahkan)}
       ${ttdKolom('Yang Menerima,', s.penerima, s.ttd && s.ttd.menerima)}
       ${ttdKolom('HRD,', '', s.ttd && s.ttd.hrd)}
+    </div>
+    <div class="ttd-status">
+      ${['menyerahkan', 'menerima', 'hrd'].map((k) =>
+        `<span class="ttd-badge${s.ttd && s.ttd[k] ? ' oke' : ''}">${escapeHtml(LABEL_TTD[k])}${s.ttd && s.ttd[k] ? ' ✓' : ''}</span>`
+      ).join('')}
+    </div>
+    <div class="bagikan">
+      <div class="bagikan-info">
+        <strong>Minta tanda tangan di HP lain</strong>
+        <p>Penerima membuka tautan ini (atau memindai QR) di HP-nya, lalu menandatangani sendiri.</p>
+        <div class="baris-tautan">
+          <input type="text" id="tautan-ttd" readonly value="${escapeHtml(ttdShareUrl(s.nomor))}">
+          <button type="button" id="salin-tautan">Salin</button>
+        </div>
+      </div>
+      <img class="qr" src="/api/surat/${encodeURIComponent(s.nomor)}/qr" alt="QR tanda tangan">
     </div>`;
+}
+
+const LABEL_TTD = { menyerahkan: 'Menyerahkan', menerima: 'Menerima', hrd: 'HRD' };
+
+function ttdShareUrl(nomor) {
+  return location.origin + '/ttd.html?nomor=' + encodeURIComponent(nomor);
+}
+
+function ttdMarks(ttd) {
+  return ['menyerahkan', 'menerima', 'hrd']
+    .map((k) => (ttd && ttd[k] ? '<b class="ok">✓</b>' : '<span class="no">·</span>'))
+    .join('');
 }
 
 function ttdKolom(label, nama, dataUrl) {
@@ -198,6 +226,16 @@ btnBatal.addEventListener('click', () => {
 
 document.getElementById('btn-cetak').addEventListener('click', () => window.print());
 
+suratEl.addEventListener('click', (e) => {
+  if (e.target.id === 'salin-tautan') {
+    const input = document.getElementById('tautan-ttd');
+    input.select();
+    if (navigator.clipboard) navigator.clipboard.writeText(input.value).catch(() => {});
+    e.target.textContent = 'Tersalin ✓';
+    setTimeout(() => (e.target.textContent = 'Salin'), 1600);
+  }
+});
+
 document.getElementById('btn-baru').addEventListener('click', () => {
   resetEdit();
   form.reset();
@@ -276,6 +314,7 @@ function tampilRiwayat() {
       <td>${escapeHtml(r.departemenPenerima)}</td>
       <td>${escapeHtml(r.keterangan)}</td>
       <td>${escapeHtml((r.aset || []).join(', '))}</td>
+      <td class="ttd-cell">${ttdMarks(r.ttd)}</td>
       <td class="aksi">
         <button class="btn-aksi" data-nomor="${nomor}" data-act="edit">Edit</button>
         <button class="btn-aksi hapus" data-nomor="${nomor}" data-act="hapus">Hapus</button>

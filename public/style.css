@@ -516,6 +516,115 @@ button:active {
   }
 }
 
+.ttd-status {
+  display: flex;
+  gap: 8px;
+  margin-top: 18px;
+  justify-content: center;
+}
+
+.ttd-badge {
+  font-size: 12px;
+  padding: 5px 12px;
+  border-radius: 999px;
+  background: #f1f5f9;
+  color: #64748b;
+  border: 1px solid #e2e8f0;
+}
+
+.ttd-badge.oke {
+  background: #ecfdf5;
+  color: #047857;
+  border-color: #a7f3d0;
+}
+
+.bagikan {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  margin-top: 18px;
+  padding: 14px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #f8fafc;
+}
+
+.bagikan-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.bagikan-info strong {
+  font-size: 14px;
+}
+
+.bagikan-info p {
+  margin: 4px 0 10px;
+  font-size: 13px;
+  color: #475569;
+}
+
+.baris-tautan {
+  display: flex;
+  gap: 8px;
+}
+
+.baris-tautan input {
+  flex: 1;
+  min-width: 0;
+  font-size: 12px;
+  padding: 8px 10px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #fff;
+  color: #334155;
+}
+
+.baris-tautan button {
+  padding: 8px 14px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #fff;
+  font-size: 13px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.baris-tautan button:active {
+  background: #f1f5f9;
+}
+
+.bagikan .qr {
+  width: 110px;
+  height: 110px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #fff;
+}
+
+@media (max-width: 640px) {
+  .bagikan {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .bagikan .qr {
+    align-self: center;
+  }
+}
+
+.ttd-cell {
+  text-align: center;
+  letter-spacing: 3px;
+}
+
+.ttd-cell .ok {
+  color: #059669;
+}
+
+.ttd-cell .no {
+  color: #cbd5e1;
+}
+
 table#tabel-riwayat {
   width: 100%;
   border-collapse: collapse;

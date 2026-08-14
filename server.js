@@ -6,6 +6,7 @@ const { nextNomor } = require('./lib/nomor');
 const { bikinExcel } = require('./lib/excel');
 const { buatPdf, dirPdf } = require('./lib/pdf');
 const storage = require('./lib/storage');
+const QRCode = require('qrcode');
 
 const app = express();
 app.use(express.json({ limit: '10mb' }));
@@ -137,6 +138,21 @@ async function simpanSuratDanPdf(surat) {
   return namaFile;
 }
 
+async function simpanTtdSurat(nomor, ttdBaru) {
+  for (const pihak of Object.keys(ttdBaru)) {
+    await storage.ttd.simpanTtd(nomor, pihak, ttdBaru[pihak]);
+  }
+}
+
+function ttdUrl(req, nomor) {
+  const proto = req.headers['x-forwarded-proto'] || req.protocol || 'https';
+  return `${proto}://${req.get('host')}/ttd.html?nomor=${encodeURIComponent(String(nomor))}`;
+}
+
+function cariSurat(nomor) {
+  return storage.bacaRiwayat().then((daftar) => daftar.find((r) => String(r.nomor) === String(nomor)));
+}
+
 app.get('/api/riwayat/download', async (_req, res) => {
   try {
     if (storage.mode === 'file') {
@@ -168,6 +184,58 @@ app.get('/api/surat/:nomor/pdf', async (req, res) => {
   }
 });
 
+app.get('/api/surat/:nomor/qr', async (req, res) => {
+  try {
+    const png = await QRCode.toBuffer(ttdUrl(req, req.params.nomor), {
+      width: 320,
+      margin: 1,
+      color: { dark: '#000000', light: '#ffffff' },
+    });
+    res.setHeader('Content-Type', 'image/png');
+    res.send(png);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Gagal membuat QR.' });
+  }
+});
+
+app.post('/api/surat/:nomor/ttd', async (req, res) => {
+  try {
+    const surat = await cariSurat(req.params.nomor);
+    if (!surat) return res.status(404).json({ error: 'Surat tidak ditemukan.' });
+
+    const ttdBaru = ambilTtd(req.body && req.body.ttd);
+    if (Object.keys(ttdBaru).length === 0) {
+      return res.status(400).json({ error: 'Tidak ada tanda tangan yang dikirim.' });
+    }
+
+    await simpanTtdSurat(surat.nomor, ttdBaru);
+    surat.ttd = await storage.ttd.muatTtd(surat.nomor);
+    const kodeAset = (await storage.aset.kodeAsetPerNomor())[surat.nomor] || [];
+    surat.aset = await ambilInfoAset(kodeAset);
+    const namaFile = await simpanSuratDanPdf(surat);
+
+    res.json({ ...surat, pdf: namaFile, ttd: ttdDataUrl(surat.ttd) });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Gagal menyimpan tanda tangan.' });
+  }
+});
+
+app.get('/api/surat/:nomor', async (req, res) => {
+  try {
+    const surat = await cariSurat(req.params.nomor);
+    if (!surat) return res.status(404).json({ error: 'Surat tidak ditemukan.' });
+    const kodeAset = (await storage.aset.kodeAsetPerNomor())[surat.nomor] || [];
+    surat.aset = await ambilInfoAset(kodeAset);
+    surat.ttd = ttdDataUrl(await storage.ttd.muatTtd(surat.nomor));
+    res.json(surat);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Gagal membaca surat.' });
+  }
+});
+
 app.get('/api/config', (_req, res) => {
   res.json({
     kota: config.kota,
@@ -182,7 +250,11 @@ app.get('/api/riwayat', async (_req, res) => {
   try {
     const daftar = await storage.bacaRiwayat();
     const map = await storage.aset.kodeAsetPerNomor();
-    res.json(daftar.map((s) => ({ ...s, aset: map[s.nomor] || [] })));
+    const hasil = [];
+    for (const s of daftar) {
+      hasil.push({ ...s, aset: map[s.nomor] || [], ttd: await storage.ttd.statusTtd(s.nomor) });
+    }
+    res.json(hasil);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Gagal membaca riwayat.' });
@@ -202,7 +274,9 @@ app.post('/api/surat', async (req, res) => {
       await storage.aset.aturStatus(kodeAset, hasil.data.kategori === 'penyerahan' ? 'dipakai' : 'tersedia');
     }
     surat.aset = await ambilInfoAset(kodeAset);
-    surat.ttd = ambilTtd(req.body.ttd);
+    const ttdBaru = ambilTtd(req.body.ttd);
+    if (Object.keys(ttdBaru).length) await simpanTtdSurat(surat.nomor, ttdBaru);
+    surat.ttd = await storage.ttd.muatTtd(surat.nomor);
     const namaFile = await simpanSuratDanPdf(surat);
 
     res.json({ ...surat, pdf: namaFile, ttd: ttdDataUrl(surat.ttd) });
@@ -227,7 +301,9 @@ app.put('/api/surat/:nomor', async (req, res) => {
     await storage.aset.tautkanSurat(surat.nomor, kodeAset);
     await storage.aset.aturStatus(kodeAset, hasil.data.kategori === 'penyerahan' ? 'dipakai' : 'tersedia');
     surat.aset = await ambilInfoAset(kodeAset);
-    surat.ttd = ambilTtd(req.body.ttd);
+    const ttdEdit = ambilTtd(req.body.ttd);
+    if (Object.keys(ttdEdit).length) await simpanTtdSurat(surat.nomor, ttdEdit);
+    surat.ttd = await storage.ttd.muatTtd(surat.nomor);
     const namaFile = await simpanSuratDanPdf(surat);
 
     res.json({ ...surat, pdf: namaFile, ttd: ttdDataUrl(surat.ttd) });
@@ -248,6 +324,11 @@ app.delete('/api/surat/:nomor', async (req, res) => {
       await storage.hapusPdf(namaFile);
     } catch {
       /* PDF tidak ditemukan, abaikan */
+    }
+    try {
+      await storage.ttd.hapusTtd(nomor);
+    } catch {
+      /* file ttd tidak ditemukan, abaikan */
     }
     try {
       await storage.aset.hapusTautanSurat(nomor);

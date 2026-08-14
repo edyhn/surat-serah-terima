@@ -134,3 +134,43 @@ test('api: tanda tangan digital disertakan dalam PDF', async () => {
     child.kill();
   }
 });
+
+test('api: ttd parsial dari penerima + QR + status di riwayat', async () => {
+  const child = await nyalakan();
+  try {
+    const png = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+    const payload = {
+      nama: 'Edy',
+      departemen: 'HCM',
+      penerima: 'Isti',
+      departemenPenerima: 'FAT',
+      keterangan: 'Laptop Asus',
+      kategori: 'penyerahan',
+    };
+    const buat = await json('POST', '/api/surat', payload);
+    assert.equal(buat.status, 200);
+    const nomor = buat.data.nomor;
+
+    const ttd = await json('POST', `/api/surat/${encodeURIComponent(nomor)}/ttd`, {
+      ttd: { menerima: 'data:image/png;base64,' + png },
+    });
+    assert.equal(ttd.status, 200);
+    assert.ok(ttd.data.ttd && ttd.data.ttd.menerima, 'ttd menerima harus tersimpan');
+    assert.equal(ttd.data.ttd.menyerahkan, undefined, 'ttd menyerahkan belum ada');
+
+    const satu = await json('GET', `/api/surat/${encodeURIComponent(nomor)}`);
+    assert.equal(satu.status, 200);
+    assert.ok(satu.data.ttd.menerima, 'GET surat tunggal memuat ttd');
+
+    const riwayat = await json('GET', '/api/riwayat');
+    const r = riwayat.data.find((x) => x.nomor === nomor);
+    assert.ok(r.ttd.menerima === true, 'status ttd menerima true di riwayat');
+    assert.ok(r.ttd.menyerahkan === false, 'status ttd menyerahkan masih false');
+
+    const qr = await fetch(`${BASE}/api/surat/${encodeURIComponent(nomor)}/qr`);
+    assert.equal(qr.status, 200);
+    assert.ok((qr.headers.get('content-type') || '').includes('image/png'), 'QR berupa PNG');
+  } finally {
+    child.kill();
+  }
+});

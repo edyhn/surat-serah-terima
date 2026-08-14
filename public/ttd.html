@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tanda Tangan Digital</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    background: #eef2f7;
+    color: #0f172a;
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    padding: 16px;
+  }
+  .kartu {
+    background: #fff;
+    border-radius: 14px;
+    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+    padding: 20px;
+    max-width: 520px;
+    width: 100%;
+    align-self: flex-start;
+  }
+  h1 { font-size: 18px; margin: 0 0 4px; }
+  .sub { color: #64748b; font-size: 13px; margin: 0 0 16px; }
+  .status { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+  .status .chip {
+    font-size: 12px; padding: 5px 10px; border-radius: 999px;
+    background: #f1f5f9; color: #64748b; border: 1px solid #e2e8f0;
+  }
+  .status .chip.signed { background: #ecfdf5; color: #047857; border-color: #a7f3d0; }
+  .nomor { font-size: 15px; font-weight: 700; margin: 0 0 12px; }
+  dl { margin: 0 0 16px; font-size: 13px; }
+  dt { color: #64748b; margin-top: 8px; font-size: 11px; text-transform: uppercase; letter-spacing: .4px; }
+  dd { margin: 2px 0 0; font-weight: 500; }
+  .pad-wrap {
+    border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px; background: #f8fafc; margin-bottom: 14px;
+  }
+  .pad-label { font-size: 13px; font-weight: 600; color: #334155; margin-bottom: 8px; text-align: center; }
+  canvas {
+    width: 100%; height: 150px; background: #fff; border: 1px dashed #cbd5e1;
+    border-radius: 8px; touch-action: none; display: block; cursor: crosshair;
+  }
+  .aksi { display: flex; gap: 8px; margin-top: 10px; }
+  .aksi button {
+    flex: 1; padding: 10px; border-radius: 8px; border: 1px solid #cbd5e1;
+    background: #fff; font-size: 14px; cursor: pointer;
+  }
+  .aksi button:active { background: #f1f5f9; }
+  #kirim {
+    width: 100%; padding: 14px; border: none; border-radius: 10px;
+    background: #0ea5e9; color: #fff; font-size: 16px; font-weight: 700; cursor: pointer;
+  }
+  #kirim:disabled { background: #94a3b8; cursor: not-allowed; }
+  #pesan { text-align: center; font-size: 14px; margin: 12px 0 0; min-height: 20px; }
+  #pesan.ok { color: #047857; }
+  #pesan.err { color: #dc2626; }
+  .loading, .kosong { color: #64748b; text-align: center; font-size: 14px; padding: 24px 0; }
+</style>
+</head>
+<body>
+  <main class="kartu">
+    <h1>Tanda Tangan Digital</h1>
+    <p class="sub">Surat Serah Terima</p>
+    <div id="muat" class="loading">Memuat surat…</div>
+    <div id="isi" hidden>
+      <div class="status" id="status"></div>
+      <p class="nomor" id="nomor"></p>
+      <dl>
+        <dt>Tanggal</dt><dd id="tanggal"></dd>
+        <dt>Kategori</dt><dd id="kategori"></dd>
+        <dt>Dari</dt><dd id="dari"></dd>
+        <dt>Untuk</dt><dd id="untuk"></dd>
+        <dt>Keterangan</dt><dd id="keterangan"></dd>
+        <dt>Aset</dt><dd id="aset"></dd>
+      </dl>
+      <div class="pad-wrap">
+        <div class="pad-label" id="pad-label">Tanda tangan</div>
+        <canvas id="pad" width="500" height="160"></canvas>
+        <div class="aksi">
+          <button type="button" id="hapus">Hapus</button>
+        </div>
+      </div>
+      <button id="kirim">Kirim Tanda Tangan</button>
+      <p id="pesan"></p>
+    </div>
+  </main>
+
+<script>
+  (function () {
+    var params = new URLSearchParams(location.search);
+    var nomor = params.get('nomor') || '';
+    var pihak = params.get('pihak') || 'menerima';
+
+    var LABEL = {
+      menyerahkan: 'Yang Menyerahkan',
+      menerima: 'Yang Menerima',
+      hrd: 'HRD',
+    };
+    var KUNCI = ['menyerahkan', 'menerima', 'hrd'];
+
+    var elMuat = document.getElementById('muat');
+    var elIsi = document.getElementById('isi');
+    var elNomor = document.getElementById('nomor');
+    var elStatus = document.getElementById('status');
+    var elTanggal = document.getElementById('tanggal');
+    var elKategori = document.getElementById('kategori');
+    var elDari = document.getElementById('dari');
+    var elUntuk = document.getElementById('untuk');
+    var elKet = document.getElementById('keterangan');
+    var elAset = document.getElementById('aset');
+    var canvas = document.getElementById('pad');
+    var ctx = canvas.getContext('2d');
+    var btnHapus = document.getElementById('hapus');
+    var btnKirim = document.getElementById('kirim');
+    var elPesan = document.getElementById('pesan');
+
+    var menggambar = false;
+    var adaIsi = false;
+    var terkirim = false;
+
+    function ttdLabel() {
+      document.getElementById('pad-label').textContent = 'Tanda tangan (' + (LABEL[pihak] || pihak) + ')';
+    }
+
+    function posisi(e) {
+      var r = canvas.getBoundingClientRect();
+      return {
+        x: (e.clientX - r.left) * (canvas.width / r.width),
+        y: (e.clientY - r.top) * (canvas.height / r.height),
+      };
+    }
+
+    canvas.addEventListener('pointerdown', function (e) {
+      if (terkirim) return;
+      var p = posisi(e);
+      ctx.strokeStyle = '#0f172a';
+      ctx.lineWidth = 3;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.beginPath();
+      ctx.moveTo(p.x, p.y);
+      ctx.lineTo(p.x + 0.1, p.y + 0.1);
+      ctx.stroke();
+      menggambar = true;
+      adaIsi = true;
+    });
+    canvas.addEventListener('pointermove', function (e) {
+      if (!menggambar || terkirim) return;
+      var p = posisi(e);
+      ctx.lineTo(p.x, p.y);
+      ctx.stroke();
+    });
+    canvas.addEventListener('pointerup', function () { menggambar = false; });
+    canvas.addEventListener('pointerleave', function () { menggambar = false; });
+
+    btnHapus.addEventListener('click', function () {
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      adaIsi = false;
+    });
+
+    function tampilPesan(teks, oke) {
+      elPesan.textContent = teks;
+      elPesan.className = oke ? 'ok' : 'err';
+    }
+
+    btnKirim.addEventListener('click', async function () {
+      if (!adaIsi) {
+        tampilPesan('Tanda tangan masih kosong. Gambar dulu di kotak di atas.', false);
+        return;
+      }
+      if (terkirim) return;
+      btnKirim.disabled = true;
+      btnKirim.textContent = 'Mengirim…';
+      try {
+        var ttd = {};
+        ttd[pihak] = canvas.toDataURL('image/png');
+        var res = await fetch('/api/surat/' + encodeURIComponent(nomor) + '/ttd', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ttd: ttd }),
+        });
+        var data = await res.json().catch(function () { return {}; });
+        if (!res.ok) throw new Error(data.error || 'Gagal mengirim tanda tangan.');
+        terkirim = true;
+        btnKirim.textContent = 'Tanda tangan terkirim';
+        tampilPesan('Terima kasih, tanda tangan Anda sudah masuk ke surat.', true);
+        muatStatus(data.ttd);
+      } catch (err) {
+        btnKirim.disabled = false;
+        btnKirim.textContent = 'Kirim Tanda Tangan';
+        tampilPesan(err.message, false);
+      }
+    });
+
+    function muatStatus(ttd) {
+      elStatus.innerHTML = KUNCI.map(function (k) {
+        var ada = !!(ttd && ttd[k]);
+        return '<span class="chip' + (ada ? ' signed' : '') + '">' + (ada ? '✓ ' : '') + (LABEL[k]) + '</span>';
+      }).join('');
+    }
+
+    async function muat() {
+      try {
+        var res = await fetch('/api/surat/' + encodeURIComponent(nomor));
+        if (!res.ok) throw new Error('Surat tidak ditemukan.');
+        var s = await res.json();
+        elNomor.textContent = 'Nomor: ' + s.nomor;
+        elTanggal.textContent = s.tanggal;
+        elKategori.textContent = s.kategori === 'penyerahan' ? 'Penyerahan' : 'Pengembalian';
+        elDari.textContent = s.nama + ' — ' + s.departemen;
+        elUntuk.textContent = s.penerima + ' — ' + s.departemenPenerima;
+        elKet.textContent = s.keterangan;
+        elAset.textContent = (s.aset && s.aset.length)
+          ? s.aset.map(function (a) { return a.kode + (a.nama ? ' — ' + a.nama : ''); }).join(', ')
+          : '—';
+        muatStatus(s.ttd);
+        ttdLabel();
+        elMuat.hidden = true;
+        elIsi.hidden = false;
+      } catch (err) {
+        elMuat.className = 'kosong';
+        elMuat.textContent = 'Surat tidak ditemukan. Periksa kembali tautan yang Anda terima.';
+      }
+    }
+
+    muat();
+  })();
+</script>
+</body>
+</html>
