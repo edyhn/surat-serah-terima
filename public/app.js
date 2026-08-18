@@ -116,9 +116,9 @@ function ttdMarks(ttd) {
 function ttdKolom(label, nama, dataUrl, pihak) {
   const WARNA_TTD = { menyerahkan: '#2563eb', menerima: '#059669', hrd: '#7c3aed' };
   return `
-    <div class="ttd-col${dataUrl ? ' has-ttd' : ''}">
+    <div class="ttd-col">
       <div><span class="ttd-dot" style="background:${WARNA_TTD[pihak] || '#0f172a'}"></span>${label}</div>
-      ${dataUrl ? `<img class="ttd-img" src="${dataUrl}" alt="ttd">` : ''}
+      <div class="ttd-slot">${dataUrl ? `<img class="ttd-img" src="${dataUrl}" alt="ttd">` : ''}</div>
       <div class="garis"></div>
       <div>${nama ? '(' + escapeHtml(nama) + ')' : '(................)'}</div>
     </div>`;
