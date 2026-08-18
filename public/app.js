@@ -84,20 +84,27 @@ function formHtml(s) {
     <div class="bagikan">
       <div class="bagikan-info">
         <strong>Minta tanda tangan di HP lain</strong>
-        <p>Penerima membuka tautan ini (atau memindai QR) di HP-nya, lalu menandatangani sendiri.</p>
+        <p>Pilih pihak, kirim tautan/QR; pihak tersebut membuka di HP-nya lalu menandatangani sendiri.</p>
+        <div class="pihak-tab" id="pihak-tab">
+          <button type="button" class="tab" data-pihak="menyerahkan">Menyerahkan</button>
+          <button type="button" class="tab aktif" data-pihak="menerima">Menerima</button>
+          <button type="button" class="tab" data-pihak="hrd">HRD</button>
+        </div>
         <div class="baris-tautan">
-          <input type="text" id="tautan-ttd" readonly value="${escapeHtml(ttdShareUrl(s.nomor))}">
+          <input type="text" id="tautan-ttd" readonly value="${escapeHtml(ttdShareUrl(s.nomor, 'menerima'))}">
           <button type="button" id="salin-tautan">Salin</button>
         </div>
       </div>
-      <img class="qr" src="/api/surat/${encodeURIComponent(s.nomor)}/qr" alt="QR tanda tangan">
+      <img class="qr" id="qr-ttd" src="/api/surat/${encodeURIComponent(s.nomor)}/qr?pihak=menerima" alt="QR tanda tangan">
     </div>`;
 }
 
 const LABEL_TTD = { menyerahkan: 'Menyerahkan', menerima: 'Menerima', hrd: 'HRD' };
 
-function ttdShareUrl(nomor) {
-  return location.origin + '/ttd.html?nomor=' + encodeURIComponent(nomor);
+function ttdShareUrl(nomor, pihak) {
+  let url = location.origin + '/ttd.html?nomor=' + encodeURIComponent(nomor);
+  if (pihak) url += '&pihak=' + encodeURIComponent(pihak);
+  return url;
 }
 
 function ttdMarks(ttd) {
@@ -228,6 +235,17 @@ btnBatal.addEventListener('click', () => {
 document.getElementById('btn-cetak').addEventListener('click', () => window.print());
 
 suratEl.addEventListener('click', (e) => {
+  const tabBtn = e.target.closest('#pihak-tab .tab');
+  if (tabBtn) {
+    const pihak = tabBtn.dataset.pihak;
+    suratEl.querySelectorAll('#pihak-tab .tab').forEach((t) => t.classList.toggle('aktif', t === tabBtn));
+    const params = new URLSearchParams(document.getElementById('tautan-ttd').value.split('?')[1] || '');
+    const nomor = params.get('nomor') || '';
+    document.getElementById('tautan-ttd').value = ttdShareUrl(nomor, pihak);
+    const qr = document.getElementById('qr-ttd');
+    qr.src = '/api/surat/' + encodeURIComponent(nomor) + '/qr?pihak=' + pihak + '&t=' + Date.now();
+    return;
+  }
   if (e.target.id === 'salin-tautan') {
     const input = document.getElementById('tautan-ttd');
     input.select();

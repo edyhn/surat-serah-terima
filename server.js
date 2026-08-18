@@ -153,9 +153,11 @@ async function simpanTtdSurat(nomor, ttdBaru) {
   }
 }
 
-function ttdUrl(req, nomor) {
+function ttdUrl(req, nomor, pihak) {
   const proto = req.headers['x-forwarded-proto'] || req.protocol || 'https';
-  return `${proto}://${req.get('host')}/ttd.html?nomor=${encodeURIComponent(String(nomor))}`;
+  let url = `${proto}://${req.get('host')}/ttd.html?nomor=${encodeURIComponent(String(nomor))}`;
+  if (PIHAK_TTD.includes(pihak)) url += `&pihak=${encodeURIComponent(pihak)}`;
+  return url;
 }
 
 function cariSurat(nomor) {
@@ -195,7 +197,8 @@ app.get('/api/surat/:nomor/pdf', async (req, res) => {
 
 app.get('/api/surat/:nomor/qr', async (req, res) => {
   try {
-    const png = await QRCode.toBuffer(ttdUrl(req, req.params.nomor), {
+    const pihak = PIHAK_TTD.includes(req.query.pihak) ? String(req.query.pihak) : null;
+    const png = await QRCode.toBuffer(ttdUrl(req, req.params.nomor, pihak), {
       width: 320,
       margin: 1,
       color: { dark: '#000000', light: '#ffffff' },

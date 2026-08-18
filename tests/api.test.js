@@ -170,6 +170,10 @@ test('api: ttd parsial dari penerima + QR + status di riwayat', async () => {
     const qr = await fetch(`${BASE}/api/surat/${encodeURIComponent(nomor)}/qr`);
     assert.equal(qr.status, 200);
     assert.ok((qr.headers.get('content-type') || '').includes('image/png'), 'QR berupa PNG');
+
+    const qrHrd = await fetch(`${BASE}/api/surat/${encodeURIComponent(nomor)}/qr?pihak=hrd`);
+    assert.equal(qrHrd.status, 200);
+    assert.ok((qrHrd.headers.get('content-type') || '').includes('image/png'), 'QR per pihak berupa PNG');
   } finally {
     child.kill();
   }

@@ -573,6 +573,34 @@ button:active {
   color: #475569;
 }
 
+.pihak-tab {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.pihak-tab .tab {
+  flex: 1;
+  padding: 8px 10px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #fff;
+  font-size: 13px;
+  cursor: pointer;
+  text-align: center;
+}
+
+.pihak-tab .tab.aktif {
+  background: #e0f2fe;
+  border-color: #0ea5e9;
+  color: #0369a1;
+  font-weight: 600;
+}
+
+.pihak-tab .tab:active {
+  background: #f1f5f9;
+}
+
 .baris-tautan {
   display: flex;
   gap: 8px;
