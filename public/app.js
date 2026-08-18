@@ -17,6 +17,60 @@ let semuaAset = [];
 let asetTerpilih = [];
 let editAsetKode = null;
 let padsTtd = {};
+let previewNomor = null;
+let sigRiwayat = '';
+let sigPreview = '';
+let pollJalan = false;
+
+function ttdSig(ttd) {
+  return ttd ? [ttd.menyerahkan, ttd.menerima, ttd.hrd].map((b) => (b ? '1' : '0')).join('') : '000';
+}
+
+async function lihatSurat(nomor) {
+  try {
+    const res = await fetch(`/api/surat/${encodeURIComponent(nomor)}`);
+    if (!res.ok) throw new Error('Surat tidak ditemukan.');
+    const data = await res.json();
+    renderSurat(data);
+    previewNomor = data.nomor;
+    sigPreview = ttdSig(data.ttd);
+    formSection.hidden = true;
+    suratSection.hidden = false;
+    resetEdit();
+    document.getElementById('surat-section').scrollIntoView({ behavior: 'smooth' });
+  } catch (err) {
+    tampilPesan(err.message, 'error');
+  }
+}
+
+async function pollPembaruan() {
+  if (pollJalan) return;
+  pollJalan = true;
+  try {
+    const res = await fetch('/api/riwayat');
+    if (!res.ok) return;
+    const daftar = await res.json();
+    const sigBaru = daftar.map((r) => String(r.nomor) + ':' + ttdSig(r.ttd)).join('|');
+    if (sigBaru !== sigRiwayat) {
+      sigRiwayat = sigBaru;
+      semuaRiwayat = daftar;
+      tampilRiwayat();
+    }
+    if (previewNomor && !editNomor && !suratSection.hidden) {
+      const baris = daftar.find((r) => String(r.nomor) === String(previewNomor));
+      const sigP = baris ? ttdSig(baris.ttd) : '';
+      if (sigP !== sigPreview) {
+        sigPreview = sigP;
+        const satu = await fetch(`/api/surat/${encodeURIComponent(previewNomor)}`);
+        if (satu.ok) renderSurat(await satu.json());
+      }
+    }
+  } catch {
+    /* abaikan, coba lagi di siklus berikutnya */
+  } finally {
+    pollJalan = false;
+  }
+}
 
 const PER_HALAMAN = 10;
 let halamanSekarang = 1;
@@ -203,6 +257,8 @@ form.addEventListener('submit', async (e) => {
     if (!res.ok) throw new Error(data.error || 'Gagal menyimpan surat.');
 
     renderSurat(data);
+    previewNomor = data.nomor;
+    sigPreview = ttdSig(data.ttd);
     formSection.hidden = true;
     suratSection.hidden = false;
     form.reset();
@@ -260,6 +316,7 @@ document.getElementById('btn-baru').addEventListener('click', () => {
   form.reset();
   form.kategori.value = 'penyerahan';
   bersihkanSemuaPad();
+  previewNomor = null;
   suratSection.hidden = true;
   formSection.hidden = false;
   document.getElementById('nama').focus();
@@ -335,6 +392,7 @@ function tampilRiwayat() {
       <td>${escapeHtml((r.aset || []).join(', '))}</td>
       <td class="ttd-cell">${ttdMarks(r.ttd)}</td>
       <td class="aksi">
+        <button class="btn-aksi" data-nomor="${nomor}" data-act="detail">Detail</button>
         <button class="btn-aksi" data-nomor="${nomor}" data-act="edit">Edit</button>
         <button class="btn-aksi hapus" data-nomor="${nomor}" data-act="hapus">Hapus</button>
       </td>`;
@@ -361,7 +419,9 @@ tbody.addEventListener('click', (e) => {
   if (!btn) return;
   const nomor = btn.dataset.nomor;
   const act = btn.dataset.act;
-  if (act === 'edit') {
+  if (act === 'detail') {
+    lihatSurat(nomor);
+  } else if (act === 'edit') {
     const r = semuaRiwayat.find((x) => String(x.nomor) === String(nomor));
     if (r) mulaiEdit(r);
   } else if (act === 'hapus') {
@@ -397,6 +457,7 @@ async function muatRiwayat() {
   try {
     const res = await fetch('/api/riwayat');
     semuaRiwayat = await res.json();
+    sigRiwayat = semuaRiwayat.map((r) => String(r.nomor) + ':' + ttdSig(r.ttd)).join('|');
     tampilRiwayat();
     hitungStatistik();
   } catch {
@@ -755,3 +816,4 @@ document.getElementById('modal-aset').addEventListener('click', (e) => {
 muatConfig();
 muatRiwayat();
 muatAset();
+setInterval(pollPembaruan, 4000);
