@@ -10,7 +10,16 @@ const QRCode = require('qrcode');
 
 const app = express();
 app.use(express.json({ limit: '10mb' }));
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(
+  express.static(path.join(__dirname, 'public'), {
+    etag: true,
+    setHeaders(res, filePath) {
+      if (/\.(html?|js|css)$/i.test(filePath)) {
+        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      }
+    },
+  })
+);
 app.use('/pdf', express.static(dirPdf()));
 
 function validasiData(body) {
