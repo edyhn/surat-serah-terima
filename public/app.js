@@ -128,7 +128,7 @@ function formHtml(s) {
     <div class="ttd3">
       ${ttdKolom('Yang Menyerahkan,', s.nama, s.ttd && s.ttd.menyerahkan, 'menyerahkan')}
       ${ttdKolom('Yang Menerima,', s.penerima, s.ttd && s.ttd.menerima, 'menerima')}
-      ${ttdKolom('HRD,', '', s.ttd && s.ttd.hrd, 'hrd')}
+      ${ttdKolom('HRD,', s.namaHrd || '', s.ttd && s.ttd.hrd, 'hrd')}
     </div>
     <div class="ttd-status">
       ${['menyerahkan', 'menerima', 'hrd'].map((k) =>
@@ -195,6 +195,7 @@ function mulaiEdit(r) {
   form['departemen-penerima'].value = r.departemenPenerima || '';
   form.keterangan.value = r.keterangan || '';
   form.kategori.value = r.kategori === 'pengembalian' ? 'pengembalian' : 'penyerahan';
+  form['nama-hrd'].value = r.namaHrd || '';
   asetTerpilih = (r.aset || []).slice();
   cariAsetEl.value = '';
   renderDaftarAsetPilih();
@@ -229,6 +230,7 @@ function ambilPayload() {
     keterangan: form.keterangan.value,
     kategori: form.kategori.value,
     aset: asetTerpilih,
+    namaHrd: form['nama-hrd'].value.trim(),
     ttd: {
       menyerahkan: captureTtd('menyerahkan'),
       menerima: captureTtd('menerima'),

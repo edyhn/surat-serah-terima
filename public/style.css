@@ -949,7 +949,9 @@ td.aksi {
   #riwayat-section,
   #aset-section,
   #stats,
-  .surat-actions {
+  .surat-actions,
+  .bagikan,
+  .ttd-status {
     display: none !important;
   }
 

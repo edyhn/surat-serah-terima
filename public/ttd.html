@@ -41,6 +41,11 @@
     border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px; background: #f8fafc; margin-bottom: 14px;
   }
   .pad-label { font-size: 13px; font-weight: 600; color: #334155; margin-bottom: 8px; text-align: center; }
+  .nama-label { display: block; font-size: 12px; font-weight: 600; color: #475569; margin: 0 0 6px; }
+  #nama-penandatangan {
+    width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 14px;
+    margin-bottom: 14px; box-sizing: border-box;
+  }
   canvas {
     width: 100%; height: 150px; background: #fff; border: 1px dashed #cbd5e1;
     border-radius: 8px; touch-action: none; display: block; cursor: crosshair;
@@ -70,7 +75,7 @@
     <div id="isi" hidden>
       <div class="status" id="status"></div>
       <p class="nomor" id="nomor"></p>
-      <dl>
+      <p id="peringatan" class="pesan" hidden></p>      <dl>
         <dt>Tanggal</dt><dd id="tanggal"></dd>
         <dt>Kategori</dt><dd id="kategori"></dd>
         <dt>Dari</dt><dd id="dari"></dd>
@@ -78,6 +83,8 @@
         <dt>Keterangan</dt><dd id="keterangan"></dd>
         <dt>Aset</dt><dd id="aset"></dd>
       </dl>
+      <label class="nama-label" for="nama-penandatangan">Nama lengkap Anda</label>
+      <input type="text" id="nama-penandatangan" placeholder="Ketik nama Anda (opsional)">
       <div class="pad-wrap">
         <div class="pad-label" id="pad-label">Tanda tangan</div>
         <canvas id="pad" width="500" height="160"></canvas>
@@ -181,10 +188,13 @@
       try {
         var ttd = {};
         ttd[pihak] = canvas.toDataURL('image/png');
+        var body = { ttd: ttd };
+        var nama = document.getElementById('nama-penandatangan').value.trim();
+        if (nama) body.nama = nama;
         var res = await fetch('/api/surat/' + encodeURIComponent(nomor) + '/ttd', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ ttd: ttd }),
+          body: JSON.stringify(body),
         });
         var data = await res.json().catch(function () { return {}; });
         if (!res.ok) throw new Error(data.error || 'Gagal mengirim tanda tangan.');
@@ -221,6 +231,12 @@
           ? s.aset.map(function (a) { return a.kode + (a.nama ? ' — ' + a.nama : ''); }).join(', ')
           : '—';
         muatStatus(s.ttd);
+        if (s.ttd && s.ttd[pihak]) {
+          var elPeringatan = document.getElementById('peringatan');
+          elPeringatan.textContent = 'Tanda tangan untuk pihak ini sudah ada. Jika Anda kirim ulang, tanda tangan lama akan digantikan.';
+          elPeringatan.className = 'pesan err';
+          elPeringatan.hidden = false;
+        }
         ttdLabel();
         elMuat.hidden = true;
         elIsi.hidden = false;

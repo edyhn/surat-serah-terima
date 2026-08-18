@@ -178,3 +178,47 @@ test('api: ttd parsial dari penerima + QR + status di riwayat', async () => {
     child.kill();
   }
 });
+
+test('api: namaHrd tersimpan + nama dari ttd + ttd overwrite last-wins', async () => {
+  const child = await nyalakan();
+  try {
+    const pngA = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+    const pngB = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
+    const payload = {
+      nama: 'Edy',
+      departemen: 'HCM',
+      penerima: 'Isti',
+      departemenPenerima: 'FAT',
+      keterangan: 'Laptop',
+      kategori: 'penyerahan',
+      namaHrd: 'Budi HRD',
+    };
+    const buat = await json('POST', '/api/surat', payload);
+    assert.equal(buat.status, 200);
+    assert.equal(buat.data.namaHrd, 'Budi HRD', 'namaHrd tersimpan saat buat surat');
+
+    const ttd = await json('POST', `/api/surat/${encodeURIComponent(buat.data.nomor)}/ttd`, {
+      ttd: { hrd: 'data:image/png;base64,' + pngA },
+      nama: 'Siti HRD',
+    });
+    assert.equal(ttd.status, 200);
+    assert.equal(ttd.data.namaHrd, 'Siti HRD', 'nama pihak hrd bisa diisi lewat ttd.html');
+
+    const ttd1 = await json('POST', `/api/surat/${encodeURIComponent(buat.data.nomor)}/ttd`, {
+      ttd: { menerima: 'data:image/png;base64,' + pngA },
+    });
+    assert.equal(ttd1.status, 200);
+    assert.equal(ttd1.data.ttd.menerima, 'data:image/png;base64,' + pngA);
+
+    const ttd2 = await json('POST', `/api/surat/${encodeURIComponent(buat.data.nomor)}/ttd`, {
+      ttd: { menerima: 'data:image/png;base64,' + pngB },
+    });
+    assert.equal(ttd2.status, 200);
+    assert.equal(ttd2.data.ttd.menerima, 'data:image/png;base64,' + pngB, 'ttd kedua harus menggantikan yang pertama');
+
+    const satu = await json('GET', `/api/surat/${encodeURIComponent(buat.data.nomor)}`);
+    assert.equal(satu.data.ttd.menerima, 'data:image/png;base64,' + pngB, 'yang tampil = ttd terbaru');
+  } finally {
+    child.kill();
+  }
+});

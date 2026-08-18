@@ -31,6 +31,7 @@ function validasiData(body) {
     departemenPenerima: bersih(body.departemenPenerima),
     keterangan: bersih(body.keterangan),
     kategori: bersih(body.kategori),
+    namaHrd: bersih(body.namaHrd),
   };
   const wajib = ['nama', 'departemen', 'penerima', 'departemenPenerima', 'keterangan'];
   const kosong = wajib.find((k) => !data[k]);
@@ -219,6 +220,14 @@ app.post('/api/surat/:nomor/ttd', async (req, res) => {
     const ttdBaru = ambilTtd(req.body && req.body.ttd);
     if (Object.keys(ttdBaru).length === 0) {
       return res.status(400).json({ error: 'Tidak ada tanda tangan yang dikirim.' });
+    }
+
+    const kunci = Object.keys(ttdBaru);
+    const nama = String(req.body && req.body.nama || '').trim();
+    const petaNama = { menyerahkan: 'nama', menerima: 'penerima', hrd: 'namaHrd' };
+    if (nama && kunci.length === 1 && petaNama[kunci[0]]) {
+      surat[petaNama[kunci[0]]] = nama;
+      await storage.updateRiwayat(surat.nomor, surat);
     }
 
     await simpanTtdSurat(surat.nomor, ttdBaru);
