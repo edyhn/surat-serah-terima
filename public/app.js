@@ -72,9 +72,9 @@ function formHtml(s) {
       </div>
     </div>
     <div class="ttd3">
-      ${ttdKolom('Yang Menyerahkan,', s.nama, s.ttd && s.ttd.menyerahkan)}
-      ${ttdKolom('Yang Menerima,', s.penerima, s.ttd && s.ttd.menerima)}
-      ${ttdKolom('HRD,', '', s.ttd && s.ttd.hrd)}
+      ${ttdKolom('Yang Menyerahkan,', s.nama, s.ttd && s.ttd.menyerahkan, 'menyerahkan')}
+      ${ttdKolom('Yang Menerima,', s.penerima, s.ttd && s.ttd.menerima, 'menerima')}
+      ${ttdKolom('HRD,', '', s.ttd && s.ttd.hrd, 'hrd')}
     </div>
     <div class="ttd-status">
       ${['menyerahkan', 'menerima', 'hrd'].map((k) =>
@@ -106,10 +106,11 @@ function ttdMarks(ttd) {
     .join('');
 }
 
-function ttdKolom(label, nama, dataUrl) {
+function ttdKolom(label, nama, dataUrl, pihak) {
+  const WARNA_TTD = { menyerahkan: '#2563eb', menerima: '#059669', hrd: '#7c3aed' };
   return `
     <div class="ttd-col${dataUrl ? ' has-ttd' : ''}">
-      <div>${label}</div>
+      <div><span class="ttd-dot" style="background:${WARNA_TTD[pihak] || '#0f172a'}"></span>${label}</div>
       ${dataUrl ? `<img class="ttd-img" src="${dataUrl}" alt="ttd">` : ''}
       <div class="garis"></div>
       <div>${nama ? '(' + escapeHtml(nama) + ')' : '(................)'}</div>
@@ -615,12 +616,13 @@ async function muatAset() {
 
 function inisialisasiPad() {
   const pads = {};
+  const WARNA_TTD = { menyerahkan: '#2563eb', menerima: '#059669', hrd: '#7c3aed' };
   document.querySelectorAll('.ttd-pad').forEach((canvas) => {
     const pihak = canvas.dataset.pihak;
-    const pad = { canvas, ctx: canvas.getContext('2d'), isi: false, menggambar: false };
+    const pad = { canvas, ctx: canvas.getContext('2d'), isi: false, menggambar: false, warna: WARNA_TTD[pihak] || '#1e293b' };
     canvas.addEventListener('pointerdown', (e) => {
       const { x, y } = posisiPad(e, pad.canvas);
-      pad.ctx.strokeStyle = '#1e293b';
+      pad.ctx.strokeStyle = pad.warna;
       pad.ctx.lineWidth = 2.5;
       pad.ctx.lineCap = 'round';
       pad.ctx.lineJoin = 'round';

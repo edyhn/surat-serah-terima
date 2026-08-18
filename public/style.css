@@ -487,6 +487,15 @@ button:active {
   text-align: center;
 }
 
+.ttd-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  margin-right: 6px;
+  vertical-align: middle;
+}
+
 .ttd-pad {
   width: 100%;
   height: 120px;
