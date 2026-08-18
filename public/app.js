@@ -168,10 +168,9 @@ function ttdMarks(ttd) {
 }
 
 function ttdKolom(label, nama, dataUrl, pihak) {
-  const WARNA_TTD = { menyerahkan: '#2563eb', menerima: '#059669', hrd: '#7c3aed' };
   return `
     <div class="ttd-col">
-      <div><span class="ttd-dot" style="background:${WARNA_TTD[pihak] || '#0f172a'}"></span>${label}</div>
+      <div>${label}</div>
       <div class="ttd-slot">${dataUrl ? `<img class="ttd-img" src="${dataUrl}" alt="ttd">` : ''}</div>
       <div class="garis"></div>
       <div>${nama ? '(' + escapeHtml(nama) + ')' : '(................)'}</div>
@@ -695,13 +694,12 @@ async function muatAset() {
 
 function inisialisasiPad() {
   const pads = {};
-  const WARNA_TTD = { menyerahkan: '#2563eb', menerima: '#059669', hrd: '#7c3aed' };
   document.querySelectorAll('.ttd-pad').forEach((canvas) => {
     const pihak = canvas.dataset.pihak;
-    const pad = { canvas, ctx: canvas.getContext('2d'), isi: false, menggambar: false, warna: WARNA_TTD[pihak] || '#1e293b' };
+    const pad = { canvas, ctx: canvas.getContext('2d'), isi: false, menggambar: false };
     canvas.addEventListener('pointerdown', (e) => {
       const { x, y } = posisiPad(e, pad.canvas);
-      pad.ctx.strokeStyle = pad.warna;
+      pad.ctx.strokeStyle = '#1e293b';
       pad.ctx.lineWidth = 2.5;
       pad.ctx.lineCap = 'round';
       pad.ctx.lineJoin = 'round';

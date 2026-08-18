@@ -41,7 +41,6 @@
     border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px; background: #f8fafc; margin-bottom: 14px;
   }
   .pad-label { font-size: 13px; font-weight: 600; color: #334155; margin-bottom: 8px; text-align: center; }
-  .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; }
   canvas {
     width: 100%; height: 150px; background: #fff; border: 1px dashed #cbd5e1;
     border-radius: 8px; touch-action: none; display: block; cursor: crosshair;
@@ -102,7 +101,6 @@
       menerima: 'Yang Menerima',
       hrd: 'HRD',
     };
-    var WARNA = { menyerahkan: '#2563eb', menerima: '#059669', hrd: '#7c3aed' };
     var KUNCI = ['menyerahkan', 'menerima', 'hrd'];
 
     var elMuat = document.getElementById('muat');
@@ -126,8 +124,8 @@
     var terkirim = false;
 
     function ttdLabel() {
-      document.getElementById('pad-label').innerHTML =
-        '<span class="dot" style="background:' + (WARNA[pihak] || '#0f172a') + '"></span>Tanda tangan (' + (LABEL[pihak] || pihak) + ')';
+      document.getElementById('pad-label').textContent =
+        'Tanda tangan (' + (LABEL[pihak] || pihak) + ')';
     }
 
     function posisi(e) {
@@ -141,7 +139,7 @@
     canvas.addEventListener('pointerdown', function (e) {
       if (terkirim) return;
       var p = posisi(e);
-      ctx.strokeStyle = WARNA[pihak] || '#0f172a';
+      ctx.strokeStyle = '#0f172a';
       ctx.lineWidth = 3;
       ctx.lineCap = 'round';
       ctx.lineJoin = 'round';
