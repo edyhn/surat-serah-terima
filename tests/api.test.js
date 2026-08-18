@@ -197,12 +197,18 @@ test('api: namaHrd tersimpan + nama dari ttd + ttd overwrite last-wins', async (
     assert.equal(buat.status, 200);
     assert.equal(buat.data.namaHrd, 'Budi HRD', 'namaHrd tersimpan saat buat surat');
 
+    const awal = await json('GET', `/api/surat/${encodeURIComponent(buat.data.nomor)}`);
+    assert.equal(awal.data.namaHrd, 'Budi HRD', 'namaHrd tersimpan di penyimpanan');
+
     const ttd = await json('POST', `/api/surat/${encodeURIComponent(buat.data.nomor)}/ttd`, {
       ttd: { hrd: 'data:image/png;base64,' + pngA },
       nama: 'Siti HRD',
     });
     assert.equal(ttd.status, 200);
     assert.equal(ttd.data.namaHrd, 'Siti HRD', 'nama pihak hrd bisa diisi lewat ttd.html');
+
+    const setelah = await json('GET', `/api/surat/${encodeURIComponent(buat.data.nomor)}`);
+    assert.equal(setelah.data.namaHrd, 'Siti HRD', 'namaHrd dari ttd.html tersimpan di penyimpanan');
 
     const ttd1 = await json('POST', `/api/surat/${encodeURIComponent(buat.data.nomor)}/ttd`, {
       ttd: { menerima: 'data:image/png;base64,' + pngA },
