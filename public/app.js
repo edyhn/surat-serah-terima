@@ -102,7 +102,7 @@ function formHtml(s) {
         <div class="kota">${escapeHtml(cfg.kota)}, ${escapeHtml(s.tanggal)}</div>
       </div>
     </div>
-    <p class="teks">Telah terima Dari :</p>
+    <p class="teks">Telah diterima dari :</p>
     <table class="identitas">
       <tr><td class="k">Nama yang Menyerahkan</td><td>: ${escapeHtml(s.nama)}</td></tr>
       <tr><td class="k">Departemen Penyerah</td><td>: ${escapeHtml(s.departemen)}</td></tr>
@@ -116,7 +116,10 @@ function formHtml(s) {
     ${s.aset && s.aset.length ? `
     <div class="kotak">
       <div class="judul-kotak">Aset</div>
-      <div class="isi">${s.aset.map((a) => escapeHtml(a.kode) + (a.nama ? ' — ' + escapeHtml(a.nama) : '')).join('<br>')}</div>
+      <table class="table-aset">
+        <tr><th>Kode</th><th>Nama Aset</th><th>Nilai</th><th>Kondisi</th></tr>
+        ${s.aset.map((a) => `<tr><td>${escapeHtml(a.kode)}</td><td>${escapeHtml(a.nama || '')}</td><td>${formatRupiah(a.nilai)}</td><td>${escapeHtml(a.kondisi || '')}</td></tr>`).join('')}
+      </table>
     </div>` : ''}
     <div class="isi pernyataan">${pernyataan}</div>
     <div class="kotak">
@@ -542,6 +545,7 @@ function renderDaftarAsetPilih() {
   }
   daftar.forEach((a) => {
     const label = document.createElement('label');
+    label.classList.toggle('dipakai-warn', a.status === 'dipakai');
     const cb = document.createElement('input');
     cb.type = 'checkbox';
     cb.checked = asetTerpilih.includes(a.kode);
@@ -556,10 +560,11 @@ function renderDaftarAsetPilih() {
       infoAsetPilih.hidden = asetTerpilih.length === 0;
     });
     const span = document.createElement('span');
-    span.textContent = `${a.kode} — ${a.nama}`;
+    span.textContent = `${a.kode} — ${a.nama}${a.nilai ? ' · ' + formatRupiah(a.nilai) : ''}`;
     const badge = document.createElement('span');
     badge.className = `badge ${a.status}`;
     badge.textContent = LABEL_STATUS[a.status] || a.status;
+    if (a.status === 'dipakai') badge.title = 'Sedang dipakai oleh surat lain';
     label.append(cb, span, badge);
     asetPilihEl.appendChild(label);
   });
@@ -716,12 +721,18 @@ async function lihatRiwayatAset(kode) {
   }
 }
 
+function perbaruiStatAset() {
+  const dipakai = semuaAset.filter((a) => a.status === 'dipakai').length;
+  document.getElementById('stat-aset-dipakai').textContent = dipakai;
+}
+
 async function muatAset() {
   try {
     const res = await fetch('/api/aset');
     semuaAset = await res.json();
     renderTabelAset();
     renderDaftarAsetPilih();
+    perbaruiStatAset();
     const kategori = [...new Set(semuaAset.map((a) => a.kategori).filter(Boolean))];
     document.getElementById('daftar-kategori-aset').innerHTML =
       kategori.map((k) => `<option value="${escapeHtml(k)}">`).join('');

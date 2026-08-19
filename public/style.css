@@ -54,7 +54,7 @@ header p {
 
 .stats {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: 14px;
   margin-bottom: 24px;
 }
@@ -94,6 +94,11 @@ header p {
 .stat-card.accent-amber {
   --warna: #f59e0b;
   --warna-soft: #fef3c7;
+}
+
+.stat-card.accent-rose {
+  --warna: #f43f5e;
+  --warna-soft: #ffe4e6;
 }
 
 .stat-top {
@@ -394,6 +399,23 @@ button:active {
 
 .surat .kotak .isi {
   margin: 0;
+}
+
+.surat table.table-aset {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+}
+
+.surat table.table-aset th,
+.surat table.table-aset td {
+  border: 1px solid #0f172a;
+  padding: 4px 6px;
+  text-align: left;
+}
+
+.surat table.table-aset th {
+  background: #f1f5f9;
 }
 
 .surat .kat {
@@ -812,6 +834,10 @@ td.aksi {
 
 .daftar-aset-pilih label:hover {
   background: #f1f5f9;
+}
+
+.daftar-aset-pilih label.dipakai-warn {
+  border-left: 3px solid #f59e0b;
 }
 
 .daftar-aset-pilih .kosong-pilih {

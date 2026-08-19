@@ -56,6 +56,12 @@
     background: #fff; font-size: 14px; cursor: pointer;
   }
   .aksi button:active { background: #f1f5f9; }
+  #ketebalan {
+    width: 100%; padding: 8px 10px; border: 1px solid #cbd5e1; border-radius: 8px;
+    font-size: 13px; margin-bottom: 10px; box-sizing: border-box;
+  }
+  #hasil { text-align: center; font-size: 14px; margin: 12px 0 0; }
+  #hasil a { color: #0284c7; font-weight: 700; }
   #kirim {
     width: 100%; padding: 14px; border: none; border-radius: 10px;
     background: #0ea5e9; color: #fff; font-size: 16px; font-weight: 700; cursor: pointer;
@@ -89,11 +95,18 @@
         <div class="pad-label" id="pad-label">Tanda tangan</div>
         <canvas id="pad" width="500" height="160"></canvas>
         <div class="aksi">
+          <button type="button" id="undo">Undo</button>
           <button type="button" id="hapus">Hapus</button>
         </div>
+        <select id="ketebalan" title="Ketebalan pena">
+          <option value="2">Pena tipis</option>
+          <option value="3.5" selected>Pena sedang</option>
+          <option value="6">Pena tebal</option>
+        </select>
       </div>
       <button id="kirim">Kirim Tanda Tangan</button>
       <p id="pesan"></p>
+      <div id="hasil" hidden></div>
     </div>
   </main>
 
@@ -129,6 +142,17 @@
     var menggambar = false;
     var adaIsi = false;
     var terkirim = false;
+    var riwayatGambar = [];
+    var PEN_MAX = 15;
+
+    function lebarPena() {
+      return parseFloat(document.getElementById('ketebalan').value) || 3.5;
+    }
+
+    function simpanKeadaan() {
+      if (riwayatGambar.length >= PEN_MAX) riwayatGambar.shift();
+      riwayatGambar.push(ctx.getImageData(0, 0, canvas.width, canvas.height));
+    }
 
     function ttdLabel() {
       document.getElementById('pad-label').textContent =
@@ -145,9 +169,10 @@
 
     canvas.addEventListener('pointerdown', function (e) {
       if (terkirim) return;
+      simpanKeadaan();
       var p = posisi(e);
       ctx.strokeStyle = '#0f172a';
-      ctx.lineWidth = 3;
+      ctx.lineWidth = lebarPena();
       ctx.lineCap = 'round';
       ctx.lineJoin = 'round';
       ctx.beginPath();
@@ -169,7 +194,14 @@
     btnHapus.addEventListener('click', function () {
       ctx.fillStyle = '#ffffff';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
+      riwayatGambar = [];
       adaIsi = false;
+    });
+
+    document.getElementById('undo').addEventListener('click', function () {
+      if (riwayatGambar.length === 0) return;
+      ctx.putImageData(riwayatGambar.pop(), 0, 0);
+      adaIsi = riwayatGambar.length > 0;
     });
 
     function tampilPesan(teks, oke) {
@@ -202,6 +234,9 @@
         btnKirim.textContent = 'Tanda tangan terkirim';
         tampilPesan('Terima kasih, tanda tangan Anda sudah masuk ke surat.', true);
         muatStatus(data.ttd);
+        var elHasil = document.getElementById('hasil');
+        elHasil.hidden = false;
+        elHasil.innerHTML = '<a href="/api/surat/' + encodeURIComponent(nomor) + '/pdf" target="_blank" rel="noopener">Lihat PDF final</a>';
       } catch (err) {
         btnKirim.disabled = false;
         btnKirim.textContent = 'Kirim Tanda Tangan';

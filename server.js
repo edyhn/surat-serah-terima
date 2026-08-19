@@ -1,6 +1,5 @@
 const express = require('express');
 const path = require('path');
-const fs = require('fs');
 const config = require('./config');
 const { nextNomor } = require('./lib/nomor');
 const { bikinExcel } = require('./lib/excel');
@@ -37,6 +36,11 @@ function validasiData(body) {
   const kosong = wajib.find((k) => !data[k]);
   if (kosong) return { error: 'Nama, departemen, dan keterangan (kedua pihak) wajib diisi.' };
   if (!['penyerahan', 'pengembalian'].includes(data.kategori)) return { error: 'Kategori tidak valid.' };
+  const aset = Array.isArray(body.aset) ? body.aset : [];
+  for (const k of aset) {
+    if (typeof k !== 'string') return { error: 'Daftar aset tidak valid.' };
+  }
+  data.aset = [...new Set(aset.map((k) => k.trim()).filter(Boolean))];
   return { data };
 }
 
@@ -118,8 +122,8 @@ async function ambilInfoAset(kodeAset) {
   return kodeAset.map((k) => {
     const a = map.get(String(k));
     return a
-      ? { kode: a.kode, nama: a.nama, kondisi: KONDISI_LABEL[a.kondisi] || a.kondisi, status: a.status }
-      : { kode: String(k), nama: '', kondisi: '', status: '' };
+      ? { kode: a.kode, nama: a.nama, kondisi: KONDISI_LABEL[a.kondisi] || a.kondisi, status: a.status, nilai: Number(a.nilai) || 0 }
+      : { kode: String(k), nama: '', kondisi: '', status: '', nilai: 0 };
   });
 }
 
@@ -165,14 +169,34 @@ function cariSurat(nomor) {
   return storage.bacaRiwayat().then((daftar) => daftar.find((r) => String(r.nomor) === String(nomor)));
 }
 
+async function aturStatusAset(nomorSurat, kodeLama, kodeBaru, kategori) {
+  const semua = await storage.aset.kodeAsetPerNomor();
+  const daftar = await storage.bacaRiwayat();
+  const aktif = new Set();
+  for (const s of daftar) {
+    if (s.kategori === 'penyerahan' && s.nomor !== nomorSurat) {
+      (semua[s.nomor] || []).forEach((k) => aktif.add(String(k)));
+    }
+  }
+  const kodeBaruSet = new Set((kodeBaru || []).map((k) => String(k)));
+  const terkait = [...new Set([...(kodeLama || []), ...(kodeBaru || [])].map((k) => String(k)))];
+  const perluDipakai = [];
+  const perluTersedia = [];
+  for (const k of terkait) {
+    if (aktif.has(k) || (kodeBaruSet.has(k) && kategori === 'penyerahan')) perluDipakai.push(k);
+    else perluTersedia.push(k);
+  }
+  if (perluDipakai.length) await storage.aset.aturStatus(perluDipakai, 'dipakai');
+  if (perluTersedia.length) await storage.aset.aturStatus(perluTersedia, 'tersedia');
+}
+
 app.get('/api/riwayat/download', async (_req, res) => {
   try {
-    if (storage.mode === 'file') {
-      const file = storage.fileRiwayat();
-      if (!fs.existsSync(file)) return res.status(404).json({ error: 'File riwayat belum ada.' });
-      return res.download(file, 'riwayat.xlsx');
-    }
     const daftar = await storage.bacaRiwayat();
+    const map = await storage.aset.kodeAsetPerNomor();
+    daftar.forEach((s) => {
+      s.aset = map[s.nomor] || [];
+    });
     const buffer = await bikinExcel(daftar);
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', 'attachment; filename="riwayat.xlsx"');
@@ -287,7 +311,7 @@ app.post('/api/surat', async (req, res) => {
     const hasil = validasiData(req.body || {});
     if (hasil.error) return res.status(400).json({ error: hasil.error });
 
-    const kodeAset = Array.isArray(req.body.aset) ? req.body.aset : [];
+    const kodeAset = hasil.data.aset || [];
     const surat = await buatSurat(hasil.data);
 
     if (kodeAset.length) {
@@ -315,12 +339,13 @@ app.put('/api/surat/:nomor', async (req, res) => {
     const lama = (await storage.bacaRiwayat()).find((r) => String(r.nomor) === String(req.params.nomor));
     if (!lama) return res.status(404).json({ error: 'Nomor surat tidak ditemukan.' });
 
-    const kodeAset = Array.isArray(req.body.aset) ? req.body.aset : [];
+    const kodeAset = hasil.data.aset || [];
+    const kodeAsetLama = (await storage.aset.kodeAsetPerNomor())[lama.nomor] || [];
     const surat = { ...lama, ...hasil.data };
     await storage.updateRiwayat(lama.nomor, surat);
 
     await storage.aset.tautkanSurat(surat.nomor, kodeAset);
-    await storage.aset.aturStatus(kodeAset, hasil.data.kategori === 'penyerahan' ? 'dipakai' : 'tersedia');
+    await aturStatusAset(surat.nomor, kodeAsetLama, kodeAset, hasil.data.kategori);
     surat.aset = await ambilInfoAset(kodeAset);
     const ttdEdit = ambilTtd(req.body.ttd);
     if (Object.keys(ttdEdit).length) await simpanTtdSurat(surat.nomor, ttdEdit);

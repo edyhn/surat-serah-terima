@@ -228,3 +228,52 @@ test('api: namaHrd tersimpan + nama dari ttd + ttd overwrite last-wins', async (
     child.kill();
   }
 });
+
+test('api: validasi aset + status konsisten saat edit + nilai aset di GET', async () => {
+  const child = await nyalakan();
+  try {
+    const asetPayload = {
+      kode: 'INV/TEST-001',
+      nama: 'Laptop Test',
+      kategori: 'Laptop',
+      nilai: 5000000,
+      kondisi: 'baru',
+      status: 'tersedia',
+    };
+    const buatAset = await json('POST', '/api/aset', asetPayload);
+    assert.equal(buatAset.status, 200);
+
+    const payload = {
+      nama: 'Edy',
+      departemen: 'HCM',
+      penerima: 'Isti',
+      departemenPenerima: 'FAT',
+      keterangan: 'Laptop',
+      kategori: 'penyerahan',
+      aset: ['INV/TEST-001'],
+    };
+    const buat = await json('POST', '/api/surat', payload);
+    assert.equal(buat.status, 200);
+    assert.equal(buat.data.aset[0].kode, 'INV/TEST-001');
+    assert.equal(buat.data.aset[0].nilai, 5000000, 'GET/POST surat memuat nilai aset');
+
+    let daftar = await json('GET', '/api/aset');
+    let a = daftar.data.find((x) => x.kode === 'INV/TEST-001');
+    assert.equal(a.status, 'dipakai', 'aset penyerahan otomatis jadi dipakai');
+
+    const objAset = await json('POST', '/api/surat', { ...payload, nama: 'Budi', aset: [{ kode: 'INV/TEST-001' }] });
+    assert.equal(objAset.status, 400, 'aset bertipe objek harus ditolak');
+
+    const edit = await json('PUT', `/api/surat/${encodeURIComponent(buat.data.nomor)}`, {
+      ...payload,
+      aset: [],
+    });
+    assert.equal(edit.status, 200);
+
+    daftar = await json('GET', '/api/aset');
+    a = daftar.data.find((x) => x.kode === 'INV/TEST-001');
+    assert.equal(a.status, 'tersedia', 'aset yang dilepas dari surat kembali tersedia');
+  } finally {
+    child.kill();
+  }
+});
