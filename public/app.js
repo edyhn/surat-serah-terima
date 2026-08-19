@@ -21,6 +21,7 @@ let previewNomor = null;
 let sigRiwayat = '';
 let sigPreview = '';
 let pollJalan = false;
+let asetPilihSemua = false;
 
 function ttdSig(ttd) {
   return ttd ? [ttd.menyerahkan, ttd.menerima, ttd.hrd].map((b) => (b ? '1' : '0')).join('') : '000';
@@ -198,6 +199,7 @@ function mulaiEdit(r) {
   form['nama-hrd'].value = r.namaHrd || '';
   asetTerpilih = (r.aset || []).slice();
   cariAsetEl.value = '';
+  asetPilihSemua = false;
   renderDaftarAsetPilih();
   bersihkanSemuaPad();
   pesan.hidden = true;
@@ -266,6 +268,7 @@ form.addEventListener('submit', async (e) => {
     form.kategori.value = 'penyerahan';
     asetTerpilih = [];
     cariAsetEl.value = '';
+    asetPilihSemua = false;
     renderDaftarAsetPilih();
     bersihkanSemuaPad();
     resetEdit();
@@ -284,6 +287,7 @@ btnBatal.addEventListener('click', () => {
   form.kategori.value = 'penyerahan';
   asetTerpilih = [];
   cariAsetEl.value = '';
+  asetPilihSemua = false;
   renderDaftarAsetPilih();
   bersihkanSemuaPad();
   resetEdit();
@@ -514,17 +518,29 @@ function formatNilaiInput() {
   document.getElementById('aset-nilai').value = formatRibuan(document.getElementById('aset-nilai').value);
 }
 
+const LIMIT_PILIH_ASET = 15;
+const URUT_STATUS = { tersedia: 0, dipakai: 1, perbaikan: 2, rusak: 3, hilang: 4, dihapus: 5 };
+
 function renderDaftarAsetPilih() {
   const q = cariAsetEl.value.toLowerCase().trim();
-  const filtered = semuaAset.filter((a) =>
+  let filtered = semuaAset.filter((a) =>
     [a.kode, a.nama, a.kategori].join(' ').toLowerCase().includes(q)
   );
+  filtered.sort(
+    (a, b) =>
+      (URUT_STATUS[a.status] ?? 9) - (URUT_STATUS[b.status] ?? 9) ||
+      String(a.kode).localeCompare(String(b.kode), undefined, { numeric: true })
+  );
+  const total = filtered.length;
+  const tampilSemua = asetPilihSemua || q !== '';
+  const daftar = tampilSemua ? filtered : filtered.slice(0, LIMIT_PILIH_ASET);
+
   asetPilihEl.innerHTML = '';
-  if (filtered.length === 0) {
+  if (total === 0) {
     asetPilihEl.innerHTML = '<div class="kosong-pilih">Tidak ada aset. Tambah dulu lewat Kelola Aset.</div>';
     return;
   }
-  filtered.forEach((a) => {
+  daftar.forEach((a) => {
     const label = document.createElement('label');
     const cb = document.createElement('input');
     cb.type = 'checkbox';
@@ -547,6 +563,26 @@ function renderDaftarAsetPilih() {
     label.append(cb, span, badge);
     asetPilihEl.appendChild(label);
   });
+
+  const footer = document.createElement('div');
+  footer.className = 'pilih-footer';
+  if (total > LIMIT_PILIH_ASET && !tampilSemua) {
+    footer.append(`Menampilkan ${LIMIT_PILIH_ASET} dari ${total} aset. `);
+    const tombol = document.createElement('button');
+    tombol.type = 'button';
+    tombol.className = 'pilih-tombol';
+    tombol.textContent = `Tampilkan semua (${total})`;
+    tombol.addEventListener('click', () => {
+      asetPilihSemua = true;
+      renderDaftarAsetPilih();
+    });
+    footer.appendChild(tombol);
+  } else if (total > LIMIT_PILIH_ASET) {
+    footer.textContent = `Menampilkan semua (${total} aset). Ketik kata kunci untuk mempersempit.`;
+  } else if (total > 0) {
+    footer.textContent = `${total} aset tersedia.`;
+  }
+  asetPilihEl.appendChild(footer);
 }
 
 function renderTabelAset() {
@@ -788,7 +824,10 @@ document.getElementById('btn-aset-baru').addEventListener('click', () => bukaFor
 document.getElementById('btn-aset-batal').addEventListener('click', tutupFormAset);
 document.getElementById('btn-aset-simpan').addEventListener('click', simpanAset);
 document.getElementById('cari-aset-admin').addEventListener('input', renderTabelAset);
-cariAsetEl.addEventListener('input', renderDaftarAsetPilih);
+cariAsetEl.addEventListener('input', () => {
+  asetPilihSemua = false;
+  renderDaftarAsetPilih();
+});
 document.getElementById('aset-kategori').addEventListener('input', () => {
   if (!editAsetKode) {
     document.getElementById('aset-kode').value = kodeAsetOtomatis(document.getElementById('aset-kategori').value);
