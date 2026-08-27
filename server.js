@@ -169,6 +169,19 @@ function cariSurat(nomor) {
   return storage.bacaRiwayat().then((daftar) => daftar.find((r) => String(r.nomor) === String(nomor)));
 }
 
+function nomorTtdKey(nomor) {
+  return String(nomor).replace(/[/\\]/g, '-');
+}
+
+function statusTtdDariMap(map, nomor) {
+  const ada = map[nomorTtdKey(nomor)] || {};
+  return {
+    menyerahkan: !!ada.menyerahkan,
+    menerima: !!ada.menerima,
+    hrd: !!ada.hrd,
+  };
+}
+
 async function aturStatusAset(nomorSurat, kodeLama, kodeBaru, kategori) {
   const semua = await storage.aset.kodeAsetPerNomor();
   const daftar = await storage.bacaRiwayat();
@@ -248,9 +261,8 @@ app.post('/api/surat/:nomor/ttd', async (req, res) => {
 
     const kunci = Object.keys(ttdBaru);
     const nama = String(req.body && req.body.nama || '').trim();
-    const petaNama = { menyerahkan: 'nama', menerima: 'penerima', hrd: 'namaHrd' };
-    if (nama && kunci.length === 1 && petaNama[kunci[0]]) {
-      surat[petaNama[kunci[0]]] = nama;
+    if (nama && kunci.length === 1 && kunci[0] === 'hrd') {
+      surat.namaHrd = nama;
       await storage.updateRiwayat(surat.nomor, surat);
     }
 
@@ -271,9 +283,13 @@ app.get('/api/surat/:nomor', async (req, res) => {
   try {
     const surat = await cariSurat(req.params.nomor);
     if (!surat) return res.status(404).json({ error: 'Surat tidak ditemukan.' });
-    const kodeAset = (await storage.aset.kodeAsetPerNomor())[surat.nomor] || [];
+    const [kodeMap, ttd] = await Promise.all([
+      storage.aset.kodeAsetPerNomor(),
+      storage.ttd.muatTtd(surat.nomor),
+    ]);
+    const kodeAset = kodeMap[surat.nomor] || [];
     surat.aset = await ambilInfoAset(kodeAset);
-    surat.ttd = ttdDataUrl(await storage.ttd.muatTtd(surat.nomor));
+    surat.ttd = ttdDataUrl(ttd);
     res.json(surat);
   } catch (err) {
     console.error(err);
@@ -291,13 +307,46 @@ app.get('/api/config', (_req, res) => {
   });
 });
 
+app.get('/api/bootstrap', async (_req, res) => {
+  try {
+    const [daftar, map, ttdMap, aset] = await Promise.all([
+      storage.bacaRiwayat(),
+      storage.aset.kodeAsetPerNomor(),
+      storage.ttd.statusSemuaTtd(),
+      storage.aset.daftarAset(),
+    ]);
+    const riwayat = daftar.map((s) => ({
+      ...s,
+      aset: map[s.nomor] || [],
+      ttd: statusTtdDariMap(ttdMap, s.nomor),
+    }));
+    res.json({
+      config: {
+        kota: config.kota,
+        deptPengelola: config.deptPengelola,
+        namaInstansi: config.namaInstansi,
+        alamatInstansi: config.alamatInstansi,
+        departemen: config.departemen || [],
+      },
+      riwayat,
+      aset,
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Gagal memuat data awal.' });
+  }
+});
+
 app.get('/api/riwayat', async (_req, res) => {
   try {
-    const daftar = await storage.bacaRiwayat();
-    const map = await storage.aset.kodeAsetPerNomor();
+    const [daftar, map, ttdMap] = await Promise.all([
+      storage.bacaRiwayat(),
+      storage.aset.kodeAsetPerNomor(),
+      storage.ttd.statusSemuaTtd(),
+    ]);
     const hasil = [];
     for (const s of daftar) {
-      hasil.push({ ...s, aset: map[s.nomor] || [], ttd: await storage.ttd.statusTtd(s.nomor) });
+      hasil.push({ ...s, aset: map[s.nomor] || [], ttd: statusTtdDariMap(ttdMap, s.nomor) });
     }
     res.json(hasil);
   } catch (err) {

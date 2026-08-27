@@ -89,8 +89,10 @@
         <dt>Keterangan</dt><dd id="keterangan"></dd>
         <dt>Aset</dt><dd id="aset"></dd>
       </dl>
-      <label class="nama-label" for="nama-penandatangan">Nama lengkap Anda</label>
-      <input type="text" id="nama-penandatangan" placeholder="Ketik nama Anda (opsional)">
+      <div id="wrap-nama-penandatangan">
+        <label class="nama-label" for="nama-penandatangan">Nama lengkap HRD</label>
+        <input type="text" id="nama-penandatangan" placeholder="Ketik nama HRD (opsional)">
+      </div>
       <div class="pad-wrap">
         <div class="pad-label" id="pad-label">Tanda tangan</div>
         <canvas id="pad" width="500" height="160"></canvas>
@@ -159,6 +161,14 @@
         'Tanda tangan (' + (LABEL[pihak] || pihak) + ')';
     }
 
+    function aturInputNama() {
+      var wrap = document.getElementById('wrap-nama-penandatangan');
+      var input = document.getElementById('nama-penandatangan');
+      var tampil = pihak === 'hrd';
+      wrap.hidden = !tampil;
+      if (!tampil) input.value = '';
+    }
+
     function posisi(e) {
       var r = canvas.getBoundingClientRect();
       return {
@@ -222,7 +232,7 @@
         ttd[pihak] = canvas.toDataURL('image/png');
         var body = { ttd: ttd };
         var nama = document.getElementById('nama-penandatangan').value.trim();
-        if (nama) body.nama = nama;
+        if (pihak === 'hrd' && nama) body.nama = nama;
         var res = await fetch('/api/surat/' + encodeURIComponent(nomor) + '/ttd', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -273,6 +283,7 @@
           elPeringatan.hidden = false;
         }
         ttdLabel();
+        aturInputNama();
         elMuat.hidden = true;
         elIsi.hidden = false;
       } catch (err) {

@@ -96,6 +96,12 @@ test('api: alur lengkap POST-GET-PUT-DELETE + PDF', async () => {
     const riwayat2 = await json('GET', '/api/riwayat');
     assert.equal(riwayat2.data.length, 1);
 
+    const bootstrap = await json('GET', '/api/bootstrap');
+    assert.equal(bootstrap.status, 200);
+    assert.ok(Array.isArray(bootstrap.data.riwayat), 'bootstrap memuat riwayat');
+    assert.ok(Array.isArray(bootstrap.data.aset), 'bootstrap memuat aset');
+    assert.ok(bootstrap.data.config && bootstrap.data.config.kota, 'bootstrap memuat config');
+
     const pdf = await fetch(`${BASE}/pdf/${`002-SRT-ST-${tahun}`}.pdf`);
     assert.equal(pdf.status, 200);
     assert.ok((await pdf.arrayBuffer()).byteLength > 1000, 'PDF tidak boleh kosong');
@@ -212,9 +218,11 @@ test('api: namaHrd tersimpan + nama dari ttd + ttd overwrite last-wins', async (
 
     const ttd1 = await json('POST', `/api/surat/${encodeURIComponent(buat.data.nomor)}/ttd`, {
       ttd: { menerima: 'data:image/png;base64,' + pngA },
+      nama: 'Nama Baru Penerima',
     });
     assert.equal(ttd1.status, 200);
     assert.equal(ttd1.data.ttd.menerima, 'data:image/png;base64,' + pngA);
+    assert.equal(ttd1.data.penerima, 'Isti', 'nama penerima tidak boleh ditimpa dari ttd.html');
 
     const ttd2 = await json('POST', `/api/surat/${encodeURIComponent(buat.data.nomor)}/ttd`, {
       ttd: { menerima: 'data:image/png;base64,' + pngB },

@@ -2,10 +2,10 @@ const form = document.getElementById('form-surat');
 const btnSimpan = document.getElementById('btn-simpan');
 const btnBatal = document.getElementById('btn-batal');
 const pesan = document.getElementById('pesan');
-const formSection = document.getElementById('form-section');
-const suratSection = document.getElementById('surat-section');
 const suratEl = document.getElementById('surat');
-const tbody = document.querySelector('#tabel-riwayat tbody');
+const suratEmpty = document.getElementById('surat-empty');
+const sideTabs = document.getElementById('side-tabs');
+const listRiwayat = document.getElementById('daftar-riwayat');
 const kosong = document.getElementById('kosong');
 
 const LABEL_KATEGORI = { penyerahan: 'Penyerahan', pengembalian: 'Pengembalian' };
@@ -35,10 +35,9 @@ async function lihatSurat(nomor) {
     renderSurat(data);
     previewNomor = data.nomor;
     sigPreview = ttdSig(data.ttd);
-    formSection.hidden = true;
-    suratSection.hidden = false;
+    syncPreviewState();
+    aktifkanPanelSamping('riwayat-panel');
     resetEdit();
-    document.getElementById('surat-section').scrollIntoView({ behavior: 'smooth' });
   } catch (err) {
     tampilPesan(err.message, 'error');
   }
@@ -57,13 +56,16 @@ async function pollPembaruan() {
       semuaRiwayat = daftar;
       tampilRiwayat();
     }
-    if (previewNomor && !editNomor && !suratSection.hidden) {
+    if (previewNomor && !editNomor) {
       const baris = daftar.find((r) => String(r.nomor) === String(previewNomor));
       const sigP = baris ? ttdSig(baris.ttd) : '';
       if (sigP !== sigPreview) {
         sigPreview = sigP;
         const satu = await fetch(`/api/surat/${encodeURIComponent(previewNomor)}`);
-        if (satu.ok) renderSurat(await satu.json());
+        if (satu.ok) {
+          renderSurat(await satu.json());
+          syncPreviewState();
+        }
       }
     }
   } catch {
@@ -88,51 +90,87 @@ function tampilPesan(teks, tipe) {
   pesan.hidden = false;
 }
 
+function syncPreviewState() {
+  const aktif = !!previewNomor && suratEl.innerHTML.trim() !== '';
+  suratEmpty.hidden = aktif;
+  suratEl.classList.toggle('aktif', aktif);
+  document.getElementById('btn-cetak').disabled = !aktif;
+}
+
+function aktifkanPanelSamping(panel) {
+  document.querySelectorAll('.side-card[data-panel]').forEach((el) => {
+    el.hidden = el.dataset.panel !== panel;
+  });
+  sideTabs.querySelectorAll('.side-tab').forEach((btn) => {
+    btn.classList.toggle('aktif', btn.dataset.panel === panel);
+  });
+}
+
+function ttdKolomKlasik(label, nama, dataUrl) {
+  return `
+    <div class="ttdk-col">
+      <div class="ttdk-label">${escapeHtml(label)}</div>
+      <div class="ttdk-slot">${dataUrl ? `<img src="${dataUrl}" alt="ttd">` : ''}</div>
+      <div class="ttdk-garis"></div>
+      <div class="ttdk-nama">${nama ? '(' + escapeHtml(nama) + ')' : '(.............)'}</div>
+    </div>`;
+}
+
 function formHtml(s) {
   const isPS = s.kategori === 'penyerahan';
+  const jumlahAset = Array.isArray(s.aset) ? s.aset.length : 0;
+  const ttdMasuk = ['menyerahkan', 'menerima', 'hrd'].filter((k) => s.ttd && s.ttd[k]).length;
   const pernyataan = isPS
     ? 'Dengan ini menyatakan bahwa barang/aset sebagaimana keterangan di atas <strong>TELAH DISERAHKAN</strong> oleh yang bersangkutan untuk diterima dan dikelola sesuai ketentuan yang berlaku.'
     : 'Dengan ini menyatakan bahwa barang/aset sebagaimana keterangan di atas <strong>TELAH DIKEMBALIKAN</strong> oleh yang bersangkutan dan telah diterima kembali dalam kondisi yang baik.';
   return `
-    <div class="surat-kop">
-      <h2>SURAT SERAH TERIMA</h2>
-      <div class="garis-ganda"></div>
-      <div class="meta">
-        <div class="nomor">Nomor&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;: ${escapeHtml(s.nomor)}</div>
-        <div class="kota">${escapeHtml(cfg.kota)}, ${escapeHtml(s.tanggal)}</div>
+    <div class="preview-strip">
+      <span class="preview-chip">${escapeHtml(s.nomor)}</span>
+      <span class="preview-chip ${isPS ? 'violet' : 'amber'}">${escapeHtml(LABEL_KATEGORI[s.kategori] || s.kategori)}</span>
+      <span class="preview-chip soft">${jumlahAset} aset</span>
+      <span class="preview-chip soft">${ttdMasuk}/3 ttd masuk</span>
+    </div>
+    <div class="dok">
+      <div class="dok-head">
+        <div class="dok-title">SURAT SERAH TERIMA</div>
+        <div class="dok-rule"></div>
       </div>
-    </div>
-    <p class="teks">Telah diterima dari :</p>
-    <table class="identitas">
-      <tr><td class="k">Nama yang Menyerahkan</td><td>: ${escapeHtml(s.nama)}</td></tr>
-      <tr><td class="k">Departemen Penyerah</td><td>: ${escapeHtml(s.departemen)}</td></tr>
-      <tr><td class="k">Nama yang Menerima</td><td>: ${escapeHtml(s.penerima)}</td></tr>
-      <tr><td class="k">Departemen Penerima</td><td>: ${escapeHtml(s.departemenPenerima)}</td></tr>
-    </table>
-    <div class="kotak">
-      <div class="judul-kotak">Keterangan</div>
-      <div class="isi">${escapeHtml(s.keterangan)}</div>
-    </div>
-    ${s.aset && s.aset.length ? `
-    <div class="kotak">
-      <div class="judul-kotak">Aset</div>
-      <table class="table-aset">
-        <tr><th>Kode</th><th>Nama Aset</th><th>Nilai</th><th>Kondisi</th></tr>
-        ${s.aset.map((a) => `<tr><td>${escapeHtml(a.kode)}</td><td>${escapeHtml(a.nama || '')}</td><td>${formatRupiah(a.nilai)}</td><td>${escapeHtml(a.kondisi || '')}</td></tr>`).join('')}
+      <div class="dok-nomor">
+        <span>Nomor&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;: ${escapeHtml(s.nomor)}</span>
+        <span>${escapeHtml(cfg.kota)}, ${escapeHtml(s.tanggal)}</span>
+      </div>
+      <p class="dok-lead">Telah diterima dari :</p>
+      <table class="dok-tabel dok-identitas">
+        <tr><td class="k">Nama yang Menyerahkan</td><td>: ${escapeHtml(s.nama)}</td></tr>
+        <tr><td class="k">Departemen Penyerah</td><td>: ${escapeHtml(s.departemen)}</td></tr>
+        <tr><td class="k">Nama yang Menerima</td><td>: ${escapeHtml(s.penerima)}</td></tr>
+        <tr><td class="k">Departemen Penerima</td><td>: ${escapeHtml(s.departemenPenerima)}</td></tr>
       </table>
-    </div>` : ''}
-    <div class="isi pernyataan">${pernyataan}</div>
-    <div class="kotak">
-      <div class="judul-kotak">Kategori</div>
-      <div class="isi kat">
-        <span class="cek"><span class="cek-box${isPS ? ' cek-isi' : ''}"></span>Penyerahan</span>
-        <span class="cek"><span class="cek-box${!isPS ? ' cek-isi' : ''}"></span>Pengembalian</span>
+      <div class="dok-kotak2">
+        <div class="kotak-judul">Keterangan</div>
+        <p class="kotak-isi">${escapeHtml(s.keterangan)}</p>
       </div>
-    </div>
-    <div class="ttd3">
-      ${ttdKolom('Yang Menyerahkan,', s.nama, s.ttd && s.ttd.menyerahkan, 'menyerahkan')}
-      ${ttdKolom('Yang Menerima,', s.penerima, s.ttd && s.ttd.menerima, 'menerima')}
-      ${ttdKolom('HRD,', s.namaHrd || '', s.ttd && s.ttd.hrd, 'hrd')}
+      ${s.aset && s.aset.length ? `
+      <div class="dok-kotak2">
+        <div class="kotak-judul">Aset</div>
+        <table class="dok-tabel dok-aset">
+          <thead><tr><th>Kode</th><th>Nama Aset</th><th>Nilai</th><th>Kondisi</th></tr></thead>
+          ${s.aset.map((a) => `<tr><td>${escapeHtml(a.kode)}</td><td>${escapeHtml(a.nama || '')}</td><td>${formatRupiah(a.nilai)}</td><td>${escapeHtml(a.kondisi || '')}</td></tr>`).join('')}
+        </table>
+      </div>` : ''}
+      <p class="dok-pernyataan">${pernyataan}</p>
+      <div class="dok-kotak2">
+        <div class="kotak-judul">Kategori</div>
+        <div class="kat-row">
+          <span class="kat-opsi"><span class="cekbox${isPS ? ' on' : ''}"></span>Penyerahan</span>
+          <span class="kat-opsi"><span class="cekbox${!isPS ? ' on' : ''}"></span>Pengembalian</span>
+        </div>
+      </div>
+      <div class="dok-ttd-klasik">
+        ${ttdKolomKlasik('Yang Menyerahkan,', s.nama, s.ttd && s.ttd.menyerahkan)}
+        ${ttdKolomKlasik('Yang Menerima,', s.penerima, s.ttd && s.ttd.menerima)}
+        ${ttdKolomKlasik('HRD,', s.namaHrd || '', s.ttd && s.ttd.hrd)}
+      </div>
     </div>
     <div class="ttd-status">
       ${['menyerahkan', 'menerima', 'hrd'].map((k) =>
@@ -171,18 +209,22 @@ function ttdMarks(ttd) {
     .join('');
 }
 
-function ttdKolom(label, nama, dataUrl, pihak) {
-  return `
-    <div class="ttd-col">
-      <div>${label}</div>
-      <div class="ttd-slot">${dataUrl ? `<img class="ttd-img" src="${dataUrl}" alt="ttd">` : ''}</div>
-      <div class="garis"></div>
-      <div>${nama ? '(' + escapeHtml(nama) + ')' : '(................)'}</div>
-    </div>`;
+function kategoriBadge(kategori) {
+  const label = LABEL_KATEGORI[kategori] || kategori;
+  return `<span class="kategori-pill ${escapeHtml(kategori)}">${escapeHtml(label)}</span>`;
+}
+
+function asetChips(aset) {
+  const daftar = Array.isArray(aset) ? aset : [];
+  if (daftar.length === 0) return '<span class="cell-sub">Tanpa aset</span>';
+  const utama = daftar.slice(0, 2).map((kode) => `<span class="aset-chip">${escapeHtml(kode)}</span>`).join('');
+  const sisa = daftar.length > 2 ? `<span class="aset-chip more">+${daftar.length - 2} lagi</span>` : '';
+  return `<div class="aset-chip-wrap">${utama}${sisa}</div>`;
 }
 
 function renderSurat(s) {
   suratEl.innerHTML = formHtml(s);
+  syncPreviewState();
 }
 
 function resetEdit() {
@@ -206,12 +248,10 @@ function mulaiEdit(r) {
   renderDaftarAsetPilih();
   bersihkanSemuaPad();
   pesan.hidden = true;
-  formSection.hidden = false;
-  suratSection.hidden = true;
   btnSimpan.textContent = 'Simpan Perubahan';
   btnBatal.hidden = false;
-  formSection.scrollIntoView({ behavior: 'smooth' });
   form.nama.focus();
+  aktifkanPanelSamping('riwayat-panel');
 }
 
 async function hapusSurat(nomor) {
@@ -265,8 +305,6 @@ form.addEventListener('submit', async (e) => {
     renderSurat(data);
     previewNomor = data.nomor;
     sigPreview = ttdSig(data.ttd);
-    formSection.hidden = true;
-    suratSection.hidden = false;
     form.reset();
     form.kategori.value = 'penyerahan';
     asetTerpilih = [];
@@ -323,10 +361,12 @@ document.getElementById('btn-baru').addEventListener('click', () => {
   resetEdit();
   form.reset();
   form.kategori.value = 'penyerahan';
+  form['nama-hrd'].value = '';
   bersihkanSemuaPad();
   previewNomor = null;
-  suratSection.hidden = true;
-  formSection.hidden = false;
+  suratEl.innerHTML = '';
+  sigPreview = '';
+  syncPreviewState();
   document.getElementById('nama').focus();
 });
 
@@ -380,32 +420,29 @@ function tampilRiwayat() {
   const mulai = (halamanSekarang - 1) * PER_HALAMAN;
   const dataHal = data.slice(mulai, mulai + PER_HALAMAN);
 
-  tbody.innerHTML = '';
   kosong.hidden = data.length > 0;
   kosong.textContent = 'Tidak ada data yang cocok.';
-
-  dataHal.forEach((r) => {
-    const tr = document.createElement('tr');
+  listRiwayat.innerHTML = dataHal.map((r) => {
     const nomor = escapeHtml(r.nomor);
-    tr.innerHTML = `
-      <td>${escapeHtml(r.no)}</td>
-      <td>${nomor}</td>
-      <td>${escapeHtml(r.tanggal)}</td>
-      <td>${escapeHtml(LABEL_KATEGORI[r.kategori] || r.kategori)}</td>
-      <td>${escapeHtml(r.nama)}</td>
-      <td>${escapeHtml(r.departemen)}</td>
-      <td>${escapeHtml(r.penerima)}</td>
-      <td>${escapeHtml(r.departemenPenerima)}</td>
-      <td>${escapeHtml(r.keterangan)}</td>
-      <td>${escapeHtml((r.aset || []).join(', '))}</td>
-      <td class="ttd-cell">${ttdMarks(r.ttd)}</td>
-      <td class="aksi">
-        <button class="btn-aksi" data-nomor="${nomor}" data-act="detail">Detail</button>
-        <button class="btn-aksi" data-nomor="${nomor}" data-act="edit">Edit</button>
-        <button class="btn-aksi hapus" data-nomor="${nomor}" data-act="hapus">Hapus</button>
-      </td>`;
-    tbody.appendChild(tr);
-  });
+    return `
+    <div class="lrow">
+      <div class="lr-top">
+        <span class="lr-nomor">${nomor}</span>
+        ${kategoriBadge(r.kategori)}
+      </div>
+      <div class="lr-sub">${escapeHtml(r.tanggalSingkat || r.tanggal)} · <strong>${escapeHtml(r.nama)}</strong> → ${escapeHtml(r.penerima)}</div>
+      <div class="lr-sub dim">${escapeHtml(r.departemen)} → ${escapeHtml(r.departemenPenerima)}${r.keterangan ? ' · ' + escapeHtml(r.keterangan) : ''}</div>
+      ${asetChips(r.aset)}
+      <div class="lr-foot">
+        <span class="lr-ttd" title="TTD: menyerahkan / menerima / hrd">${ttdMarks(r.ttd)}</span>
+        <span class="lr-actions">
+          <button class="btn-aksi" data-nomor="${nomor}" data-act="detail">Detail</button>
+          <button class="btn-aksi" data-nomor="${nomor}" data-act="edit">Edit</button>
+          <button class="btn-aksi hapus" data-nomor="${nomor}" data-act="hapus">Hapus</button>
+        </span>
+      </div>
+    </div>`;
+  }).join('');
 
   renderPaginasi(total, mulai, totalHalaman);
 }
@@ -422,7 +459,7 @@ function renderPaginasi(total, mulai, totalHalaman) {
     <button type="button" class="btn-pag" id="pg-next" ${halamanSekarang >= totalHalaman ? 'disabled' : ''}>Berikutnya ›</button>`;
 }
 
-tbody.addEventListener('click', (e) => {
+listRiwayat.addEventListener('click', (e) => {
   const btn = e.target.closest('button');
   if (!btn) return;
   const nomor = btn.dataset.nomor;
@@ -484,11 +521,34 @@ async function muatConfig() {
   }
 }
 
+async function muatAwal() {
+  try {
+    const res = await fetch('/api/bootstrap');
+    if (!res.ok) throw new Error('bootstrap gagal');
+    const data = await res.json();
+    cfg = data.config || cfg;
+    semuaRiwayat = Array.isArray(data.riwayat) ? data.riwayat : [];
+    semuaAset = Array.isArray(data.aset) ? data.aset : [];
+    sigRiwayat = semuaRiwayat.map((r) => String(r.nomor) + ':' + ttdSig(r.ttd)).join('|');
+    bangunDatalistDepartemen();
+    tampilRiwayat();
+    hitungStatistik();
+    renderTabelAset();
+    renderDaftarAsetPilih();
+    perbaruiStatAset();
+    const kategori = [...new Set(semuaAset.map((a) => a.kategori).filter(Boolean))];
+    document.getElementById('daftar-kategori-aset').innerHTML =
+      kategori.map((k) => `<option value="${escapeHtml(k)}">`).join('');
+  } catch {
+    await Promise.all([muatConfig(), muatRiwayat(), muatAset()]);
+  }
+}
+
 // --- Kelola Aset ---
 const cariAsetEl = document.getElementById('cari-aset');
 const asetPilihEl = document.getElementById('daftar-aset-pilih');
 const infoAsetPilih = document.getElementById('info-aset-pilih');
-const tbodyAset = document.querySelector('#tabel-aset tbody');
+const listAsetEl = document.getElementById('daftar-aset');
 const formAsetWrap = document.getElementById('form-aset-wrap');
 
 const LABEL_STATUS = {
@@ -595,25 +655,27 @@ function renderTabelAset() {
   const filtered = semuaAset.filter((a) =>
     [a.kode, a.nama, a.kategori].join(' ').toLowerCase().includes(q)
   );
-  tbodyAset.innerHTML = '';
   document.getElementById('kosong-aset').hidden = semuaAset.length > 0;
-  filtered.forEach((a) => {
-    const tr = document.createElement('tr');
+  listAsetEl.innerHTML = filtered.map((a) => {
     const kode = escapeHtml(a.kode);
-    tr.innerHTML = `
-      <td>${kode}</td>
-      <td>${escapeHtml(a.nama)}</td>
-      <td>${escapeHtml(a.kategori)}</td>
-      <td>${formatRupiah(a.nilai)}</td>
-      <td>${escapeHtml(LABEL_KONDISI[a.kondisi] || a.kondisi)}</td>
-      <td><span class="badge ${a.status}">${escapeHtml(LABEL_STATUS[a.status] || a.status)}</span></td>
-      <td class="aksi">
-        <button class="btn-aksi" data-kode="${kode}" data-act="riwayat">Riwayat</button>
-        <button class="btn-aksi" data-kode="${kode}" data-act="edit">Edit</button>
-        <button class="btn-aksi hapus" data-kode="${kode}" data-act="hapus">Hapus</button>
-      </td>`;
-    tbodyAset.appendChild(tr);
-  });
+    return `
+    <div class="lrow">
+      <div class="lr-top">
+        <span class="lr-nomor mono">${kode}</span>
+        <span class="badge ${a.status}">${escapeHtml(LABEL_STATUS[a.status] || a.status)}</span>
+      </div>
+      <div class="lr-sub"><strong>${escapeHtml(a.nama)}</strong>${a.kategori ? ' · ' + escapeHtml(a.kategori) : ''}</div>
+      <div class="lr-sub dim">${formatRupiah(a.nilai)} · ${escapeHtml(LABEL_KONDISI[a.kondisi] || a.kondisi)}</div>
+      <div class="lr-foot">
+        <span></span>
+        <span class="lr-actions">
+          <button class="btn-aksi" data-kode="${kode}" data-act="riwayat">Riwayat</button>
+          <button class="btn-aksi" data-kode="${kode}" data-act="edit">Edit</button>
+          <button class="btn-aksi hapus" data-kode="${kode}" data-act="hapus">Hapus</button>
+        </span>
+      </div>
+    </div>`;
+  }).join('');
 }
 
 function kodeAsetOtomatis(kategori) {
@@ -845,7 +907,7 @@ document.getElementById('aset-kategori').addEventListener('input', () => {
   }
 });
 document.getElementById('aset-nilai').addEventListener('input', formatNilaiInput);
-tbodyAset.addEventListener('click', (e) => {
+listAsetEl.addEventListener('click', (e) => {
   const btn = e.target.closest('button');
   if (!btn) return;
   const kode = btn.dataset.kode;
@@ -862,8 +924,13 @@ document.getElementById('btn-modal-tutup').addEventListener('click', () => {
 document.getElementById('modal-aset').addEventListener('click', (e) => {
   if (e.target.id === 'modal-aset') document.getElementById('modal-aset').hidden = true;
 });
+sideTabs.addEventListener('click', (e) => {
+  const btn = e.target.closest('.side-tab');
+  if (!btn) return;
+  aktifkanPanelSamping(btn.dataset.panel);
+});
 
-muatConfig();
-muatRiwayat();
-muatAset();
+muatAwal();
+aktifkanPanelSamping('riwayat-panel');
+syncPreviewState();
 setInterval(pollPembaruan, 4000);

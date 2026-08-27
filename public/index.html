@@ -3,272 +3,276 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Aplikasi Surat Serah Terima</title>
+  <title>Surat Serah Terima</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <div class="container">
-    <header>
-      <h1>Surat Serah Terima</h1>
-      <p>Isi form, nomor surat & tanggal dibuat otomatis, lalu backup tersimpan ke Excel dan PDF.</p>
+
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand-mark">ST</span>
+        <div class="brand-text">
+          <small>PT SRT · Internal</small>
+          <h1>Surat Serah Terima</h1>
+        </div>
+      </div>
+      <section class="stats" id="stats" aria-label="Ringkasan">
+        <div class="stat-chip"><span class="dot c-sky"></span><strong id="stat-total">0</strong><small>Total Surat</small></div>
+        <div class="stat-chip"><span class="dot c-emerald"></span><strong id="stat-bulan">0</strong><small>Bulan Ini</small></div>
+        <div class="stat-chip"><span class="dot c-violet"></span><strong id="stat-ps">0</strong><small>Penyerahan</small></div>
+        <div class="stat-chip"><span class="dot c-amber"></span><strong id="stat-pk">0</strong><small>Pengembalian</small></div>
+        <div class="stat-chip"><span class="dot c-rose"></span><strong id="stat-aset-dipakai">0</strong><small>Aset Dipakai</small></div>
+      </section>
     </header>
 
-    <section class="stats" id="stats">
-      <div class="stat-card accent-blue">
-        <div class="stat-top">
-          <span class="stat-ikon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3h7l5 5v13a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z"/><path d="M14 3v5h5"/></svg></span>
-          <span class="stat-nilai" id="stat-total">0</span>
-        </div>
-        <div class="stat-label">Total Surat</div>
-      </div>
-      <div class="stat-card accent-emerald">
-        <div class="stat-top">
-          <span class="stat-ikon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></span>
-          <span class="stat-nilai" id="stat-bulan">0</span>
-        </div>
-        <div class="stat-label">Surat Bulan Ini</div>
-      </div>
-      <div class="stat-card accent-violet">
-        <div class="stat-top">
-          <span class="stat-ikon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg></span>
-          <span class="stat-nilai" id="stat-ps">0</span>
-        </div>
-        <div class="stat-label">Penyerahan</div>
-      </div>
-      <div class="stat-card accent-amber">
-        <div class="stat-top">
-          <span class="stat-ikon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg></span>
-          <span class="stat-nilai" id="stat-pk">0</span>
-        </div>
-        <div class="stat-label">Pengembalian</div>
-      </div>
-      <div class="stat-card accent-rose">
-        <div class="stat-top">
-          <span class="stat-ikon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8l-9-5-9 5v8l9 5 9-5V8z"/><path d="M3 8l9 5 9-5M12 13v8"/></svg></span>
-          <span class="stat-nilai" id="stat-aset-dipakai">0</span>
-        </div>
-        <div class="stat-label">Aset Dipakai</div>
-      </div>
-    </section>
+    <main class="app-dashboard">
 
-    <section id="form-section" class="card">
-      <h2>Form Surat Serah Terima</h2>
-      <form id="form-surat">
-        <div class="form-grid">
+      <section id="form-section" class="panel panel-form">
+        <div class="panel-head">
           <div>
-            <label for="nama">Nama yang Menyerahkan</label>
-            <input type="text" id="nama" name="nama" required autocomplete="name" placeholder="Nama lengkap penyerah">
-          </div>
-          <div>
-            <label for="penerima">Nama yang Menerima</label>
-            <input type="text" id="penerima" name="penerima" required placeholder="Nama lengkap penerima">
-          </div>
-          <div>
-            <label for="departemen">Departemen Penyerah</label>
-            <input type="text" id="departemen" name="departemen" required list="daftar-departemen" placeholder="Pilih atau ketik departemen">
-          </div>
-          <div>
-            <label for="departemen-penerima">Departemen Penerima</label>
-            <input type="text" id="departemen-penerima" name="departemen-penerima" required list="daftar-departemen" placeholder="Pilih atau ketik departemen">
+            <p class="kicker">Input</p>
+            <h2>Buat Surat</h2>
+            <p class="section-note">Nomor dan tanggal dibuat otomatis saat disimpan.</p>
           </div>
         </div>
 
-        <datalist id="daftar-departemen"></datalist>
-
-        <label for="keterangan">Keterangan</label>
-        <textarea id="keterangan" name="keterangan" required rows="2" placeholder="Contoh: Penyerahan Laptop Asus (Unit Only), di serahkan ke mba isti divisi FAT"></textarea>
-
-        <label for="cari-aset">Pilih Aset (opsional)</label>
-        <input type="text" id="cari-aset" placeholder="Cari aset untuk dipilih...">
-        <div id="daftar-aset-pilih" class="daftar-aset-pilih"></div>
-        <p id="info-aset-pilih" class="pesan" hidden></p>
-
-        <fieldset>
-          <legend>Kategori</legend>
-          <label class="radio">
-            <input type="radio" name="kategori" value="penyerahan" checked>
-            Penyerahan
-          </label>
-          <label class="radio">
-            <input type="radio" name="kategori" value="pengembalian">
-            Pengembalian
-          </label>
-        </fieldset>
-
-        <fieldset id="ttd-section">
-          <legend>Tanda Tangan Digital (opsional)</legend>
-          <p class="petunjuk">Gambar tanda tangan langsung di kotak, atau unggah gambar tanda tangan (scan). Bisa dikosongkan.</p>
-          <label for="nama-hrd">Nama HRD (opsional)</label>
-          <input type="text" id="nama-hrd" name="nama-hrd" placeholder="Nama lengkap pihak HRD">
-          <div class="ttd-row">
-            <div class="ttd-pad-wrap">
-              <div class="ttd-label">Yang Menyerahkan</div>
-              <canvas class="ttd-pad" data-pihak="menyerahkan" width="500" height="150"></canvas>
-              <div class="ttd-aksi">
-                <button type="button" class="btn-sekunder ttd-unggah" data-pihak="menyerahkan">Unggah</button>
-                <button type="button" class="btn-sekunder ttd-hapus" data-pihak="menyerahkan">Hapus</button>
-                <input type="file" class="ttd-file" data-pihak="menyerahkan" accept="image/*" hidden>
+        <div class="panel-scroll">
+          <form id="form-surat">
+            <div class="form-grid">
+              <div>
+                <label for="nama">Nama yang Menyerahkan</label>
+                <input type="text" id="nama" name="nama" required autocomplete="name" placeholder="Nama lengkap penyerah">
+              </div>
+              <div>
+                <label for="penerima">Nama yang Menerima</label>
+                <input type="text" id="penerima" name="penerima" required placeholder="Nama lengkap penerima">
+              </div>
+              <div>
+                <label for="departemen">Departemen Penyerah</label>
+                <input type="text" id="departemen" name="departemen" required list="daftar-departemen" placeholder="Pilih atau ketik">
+              </div>
+              <div>
+                <label for="departemen-penerima">Departemen Penerima</label>
+                <input type="text" id="departemen-penerima" name="departemen-penerima" required list="daftar-departemen" placeholder="Pilih atau ketik">
               </div>
             </div>
-            <div class="ttd-pad-wrap">
-              <div class="ttd-label">Yang Menerima</div>
-              <canvas class="ttd-pad" data-pihak="menerima" width="500" height="150"></canvas>
-              <div class="ttd-aksi">
-                <button type="button" class="btn-sekunder ttd-unggah" data-pihak="menerima">Unggah</button>
-                <button type="button" class="btn-sekunder ttd-hapus" data-pihak="menerima">Hapus</button>
-                <input type="file" class="ttd-file" data-pihak="menerima" accept="image/*" hidden>
-              </div>
-            </div>
-            <div class="ttd-pad-wrap">
-              <div class="ttd-label">HRD</div>
-              <canvas class="ttd-pad" data-pihak="hrd" width="500" height="150"></canvas>
-              <div class="ttd-aksi">
-                <button type="button" class="btn-sekunder ttd-unggah" data-pihak="hrd">Unggah</button>
-                <button type="button" class="btn-sekunder ttd-hapus" data-pihak="hrd">Hapus</button>
-                <input type="file" class="ttd-file" data-pihak="hrd" accept="image/*" hidden>
-              </div>
-            </div>
-          </div>
-        </fieldset>
 
-        <div class="aksi-form">
-          <button type="submit" id="btn-simpan">Simpan &amp; Tampilkan Surat</button>
-          <button type="button" id="btn-batal" class="btn-sekunder" hidden>Batal Edit</button>
+            <datalist id="daftar-departemen"></datalist>
+
+            <label for="keterangan">Keterangan</label>
+            <textarea id="keterangan" name="keterangan" required rows="3" placeholder="Contoh: Penyerahan Laptop Asus (Unit Only) ke divisi FAT"></textarea>
+
+            <div class="field-head">
+              <label for="cari-aset">Aset</label>
+              <span>Opsional</span>
+            </div>
+            <input type="text" id="cari-aset" placeholder="Cari kode atau nama aset...">
+            <div id="daftar-aset-pilih" class="daftar-aset-pilih"></div>
+            <p id="info-aset-pilih" class="pesan" hidden></p>
+
+            <fieldset class="plain">
+              <legend>Kategori</legend>
+              <div class="seg">
+                <label class="radio"><input type="radio" name="kategori" value="penyerahan" checked><span>Penyerahan</span></label>
+                <label class="radio"><input type="radio" name="kategori" value="pengembalian"><span>Pengembalian</span></label>
+              </div>
+            </fieldset>
+
+            <fieldset id="ttd-section">
+              <legend>Tanda Tangan Digital</legend>
+              <p class="petunjuk">Gambar langsung atau unggah scan. Nama hanya diisi untuk HRD bila diperlukan.</p>
+              <label for="nama-hrd">Nama HRD (opsional)</label>
+              <input type="text" id="nama-hrd" name="nama-hrd" placeholder="Nama lengkap pihak HRD">
+
+              <details class="fold">
+                <summary>Gambar atau unggah tanda tangan</summary>
+                <div class="ttd-row">
+                <div class="ttd-pad-wrap">
+                  <div class="ttd-label">Yang Menyerahkan</div>
+                  <canvas class="ttd-pad" data-pihak="menyerahkan" width="500" height="150"></canvas>
+                  <div class="ttd-aksi">
+                    <button type="button" class="btn ghost sm ttd-unggah" data-pihak="menyerahkan">Unggah</button>
+                    <button type="button" class="btn ghost sm ttd-hapus" data-pihak="menyerahkan">Hapus</button>
+                    <input type="file" class="ttd-file" data-pihak="menyerahkan" accept="image/*" hidden>
+                  </div>
+                </div>
+                <div class="ttd-pad-wrap">
+                  <div class="ttd-label">Yang Menerima</div>
+                  <canvas class="ttd-pad" data-pihak="menerima" width="500" height="150"></canvas>
+                  <div class="ttd-aksi">
+                    <button type="button" class="btn ghost sm ttd-unggah" data-pihak="menerima">Unggah</button>
+                    <button type="button" class="btn ghost sm ttd-hapus" data-pihak="menerima">Hapus</button>
+                    <input type="file" class="ttd-file" data-pihak="menerima" accept="image/*" hidden>
+                  </div>
+                </div>
+                <div class="ttd-pad-wrap">
+                  <div class="ttd-label">HRD</div>
+                  <canvas class="ttd-pad" data-pihak="hrd" width="500" height="150"></canvas>
+                  <div class="ttd-aksi">
+                    <button type="button" class="btn ghost sm ttd-unggah" data-pihak="hrd">Unggah</button>
+                    <button type="button" class="btn ghost sm ttd-hapus" data-pihak="hrd">Hapus</button>
+                    <input type="file" class="ttd-file" data-pihak="hrd" accept="image/*" hidden>
+                  </div>
+                </div>
+                </div>
+              </details>
+            </fieldset>
+
+            <div class="aksi-form">
+              <button type="submit" id="btn-simpan" class="btn primary">Simpan &amp; Tampilkan Surat</button>
+              <button type="button" id="btn-batal" class="btn secondary" hidden>Batal Edit</button>
+            </div>
+          </form>
+          <p id="pesan" class="pesan" hidden></p>
         </div>
-      </form>
-      <p id="pesan" class="pesan" hidden></p>
-    </section>
+      </section>
 
-    <section id="surat-section" class="surat-wrap" hidden>
-      <div class="surat-actions">
-        <button id="btn-cetak" type="button">Cetak / Simpan PDF</button>
-        <button id="btn-baru" type="button">Buat Surat Baru</button>
-      </div>
-      <div id="surat" class="surat"></div>
-    </section>
+      <section id="surat-section" class="panel panel-preview">
+        <div class="panel-head">
+          <div>
+            <p class="kicker">Preview</p>
+            <h2>Dokumen</h2>
+            <p class="section-note">Cetak dari sini menghasilkan tata letak yang sama dengan PDF arsip.</p>
+          </div>
+        </div>
 
-    <section id="aset-section" class="card">
-      <h2>Kelola Aset</h2>
-      <div class="riwayat-head">
-        <input type="text" id="cari-aset-admin" placeholder="Cari kode / nama aset...">
-        <button type="button" id="btn-aset-baru" class="btn-sekunder">Tambah Aset</button>
-      </div>
-      <div id="form-aset-wrap" class="form-aset" hidden>
-        <h3 id="judul-form-aset">Tambah Aset</h3>
-        <div class="form-grid">
-          <div>
-            <label for="aset-kode">Kode Aset <small>(otomatis)</small></label>
-            <input type="text" id="aset-kode" readonly placeholder="Otomatis dari kategori">
-          </div>
-          <div>
-            <label for="aset-nama">Nama Aset</label>
-            <input type="text" id="aset-nama" placeholder="mis. Laptop Asus">
-          </div>
-          <div>
-            <label for="aset-kategori">Kategori</label>
-            <input type="text" id="aset-kategori" list="daftar-kategori-aset" placeholder="mis. Laptop, Monitor, HP">
-          </div>
-          <div>
-            <label for="aset-nilai">Nilai (Rp)</label>
-            <div class="rp-group">
-              <span class="rp-prefix">Rp</span>
-              <input type="text" id="aset-nilai" inputmode="numeric" placeholder="cth: 12.000.000" autocomplete="off">
+        <div class="surat-actions">
+          <button id="btn-cetak" type="button" class="btn primary">Cetak / Simpan PDF</button>
+          <button id="btn-baru" type="button" class="btn secondary">Buat Surat Baru</button>
+        </div>
+
+        <div class="panel-scroll panel-scroll-preview">
+          <div class="surat-shell">
+            <div id="surat-empty" class="surat-empty">
+              <div class="empty-mark">SRT</div>
+              <h3>Belum ada preview</h3>
+              <p>Simpan surat baru, atau buka detail dari Riwayat untuk menampilkan dokumen di panel ini.</p>
             </div>
+            <div id="surat" class="surat"></div>
           </div>
+        </div>
+      </section>
+
+      <aside class="panel panel-side">
+        <div class="panel-head compact">
           <div>
-            <label for="aset-kondisi">Kondisi</label>
-            <select id="aset-kondisi">
-              <option value="baru">Baru</option>
-              <option value="sangat-baik">Sangat Baik</option>
-              <option value="baik">Baik</option>
-              <option value="cukup">Cukup</option>
-              <option value="rusak-ringan">Rusak Ringan</option>
-              <option value="rusak-berat">Rusak Berat</option>
+            <p class="kicker">Data</p>
+            <h2>Riwayat &amp; Aset</h2>
+          </div>
+        </div>
+
+        <div class="side-tabs" id="side-tabs">
+          <button type="button" class="side-tab aktif" data-panel="riwayat-panel">Riwayat</button>
+          <button type="button" class="side-tab" data-panel="aset-panel">Aset</button>
+        </div>
+
+        <section id="riwayat-section" class="side-card" data-panel="riwayat-panel">
+          <div class="mini-head">
+            <strong>Arsip Surat</strong>
+            <button type="button" id="btn-unduh" class="btn ghost sm">Unduh Excel</button>
+          </div>
+
+          <div class="filter-bar">
+            <input type="text" id="cari" placeholder="Cari nomor, nama, keterangan...">
+            <select id="filter-kategori">
+              <option value="">Semua Kategori</option>
+              <option value="penyerahan">Penyerahan</option>
+              <option value="pengembalian">Pengembalian</option>
             </select>
           </div>
-          <div>
-            <label for="aset-status">Status</label>
-            <select id="aset-status">
-              <option value="tersedia">Tersedia</option>
-              <option value="dipakai">Dipakai</option>
-              <option value="perbaikan">Dalam Perbaikan</option>
-              <option value="rusak">Rusak</option>
-              <option value="hilang">Hilang</option>
-              <option value="dihapus">Dihapus</option>
-            </select>
+
+          <div class="table-scroll side-scroll">
+            <div id="daftar-riwayat" class="list-rows"></div>
           </div>
-        </div>
-        <datalist id="daftar-kategori-aset"></datalist>
-        <div class="aksi-form">
-          <button type="button" id="btn-aset-simpan" class="btn-primary">Simpan Aset</button>
-          <button type="button" id="btn-aset-batal" class="btn-sekunder">Batal</button>
-        </div>
-        <p id="pesan-aset" class="pesan" hidden></p>
-      </div>
-      <div class="table-scroll">
-        <table id="tabel-aset">
-          <thead>
-            <tr>
-              <th>Kode</th>
-              <th>Nama</th>
-              <th>Kategori</th>
-              <th>Nilai</th>
-              <th>Kondisi</th>
-              <th>Status</th>
-              <th>Aksi</th>
-            </tr>
-          </thead>
-          <tbody></tbody>
-        </table>
-      </div>
-      <p id="kosong-aset" class="pesan">Belum ada aset.</p>
-    </section>
+
+          <div id="paginasi" class="paginasi"></div>
+          <p id="kosong" class="pesan empty-text">Belum ada data.</p>
+        </section>
+
+        <section id="aset-section" class="side-card" data-panel="aset-panel" hidden>
+          <div class="mini-head">
+            <strong>Master Aset</strong>
+            <button type="button" id="btn-aset-baru" class="btn ghost sm">Tambah Aset</button>
+          </div>
+
+          <div class="filter-bar">
+            <input type="text" id="cari-aset-admin" placeholder="Cari kode / nama aset...">
+          </div>
+
+          <div id="form-aset-wrap" class="form-aset" hidden>
+            <h3 id="judul-form-aset">Tambah Aset</h3>
+            <div class="form-grid one">
+              <div>
+                <label for="aset-kode">Kode Aset <small>(otomatis)</small></label>
+                <input type="text" id="aset-kode" readonly placeholder="Otomatis dari kategori">
+              </div>
+              <div>
+                <label for="aset-nama">Nama Aset</label>
+                <input type="text" id="aset-nama" placeholder="mis. Laptop Asus">
+              </div>
+              <div>
+                <label for="aset-kategori">Kategori</label>
+                <input type="text" id="aset-kategori" list="daftar-kategori-aset" placeholder="mis. Laptop, Monitor, HP">
+              </div>
+              <div>
+                <label for="aset-nilai">Nilai (Rp)</label>
+                <div class="rp-group">
+                  <span class="rp-prefix">Rp</span>
+                  <input type="text" id="aset-nilai" inputmode="numeric" placeholder="cth: 12.000.000" autocomplete="off">
+                </div>
+              </div>
+              <div>
+                <label for="aset-kondisi">Kondisi</label>
+                <select id="aset-kondisi">
+                  <option value="baru">Baru</option>
+                  <option value="sangat-baik">Sangat Baik</option>
+                  <option value="baik">Baik</option>
+                  <option value="cukup">Cukup</option>
+                  <option value="rusak-ringan">Rusak Ringan</option>
+                  <option value="rusak-berat">Rusak Berat</option>
+                </select>
+              </div>
+              <div>
+                <label for="aset-status">Status</label>
+                <select id="aset-status">
+                  <option value="tersedia">Tersedia</option>
+                  <option value="dipakai">Dipakai</option>
+                  <option value="perbaikan">Dalam Perbaikan</option>
+                  <option value="rusak">Rusak</option>
+                  <option value="hilang">Hilang</option>
+                  <option value="dihapus">Dihapus</option>
+                </select>
+              </div>
+            </div>
+            <datalist id="daftar-kategori-aset"></datalist>
+            <div class="aksi-form static">
+              <button type="button" id="btn-aset-simpan" class="btn primary">Simpan Aset</button>
+              <button type="button" id="btn-aset-batal" class="btn secondary">Batal</button>
+            </div>
+            <p id="pesan-aset" class="pesan" hidden></p>
+          </div>
+
+          <div class="table-scroll side-scroll">
+            <div id="daftar-aset" class="list-rows"></div>
+          </div>
+          <p id="kosong-aset" class="pesan empty-text">Belum ada aset.</p>
+        </section>
+      </aside>
+
+    </main>
 
     <div id="modal-aset" class="modal" hidden>
       <div class="modal-box">
         <h3 id="modal-aset-judul"></h3>
         <div id="modal-aset-isi"></div>
-        <button type="button" id="btn-modal-tutup" class="btn-sekunder">Tutup</button>
+        <button type="button" id="btn-modal-tutup" class="btn secondary">Tutup</button>
       </div>
     </div>
 
-    <section id="riwayat-section" class="card">
-      <div class="riwayat-head">
-        <h2>Riwayat</h2>
-        <button type="button" id="btn-unduh" class="btn-sekunder">Unduh Excel</button>
-      </div>
-      <div class="filter-bar">
-        <input type="text" id="cari" placeholder="Cari nomor, nama, keterangan...">
-        <select id="filter-kategori">
-          <option value="">Semua Kategori</option>
-          <option value="penyerahan">Penyerahan</option>
-          <option value="pengembalian">Pengembalian</option>
-        </select>
-      </div>
-      <div class="table-scroll">
-        <table id="tabel-riwayat">
-          <thead>
-            <tr>
-              <th>No</th>
-              <th>No Surat</th>
-              <th>Tanggal</th>
-              <th>Kategori</th>
-              <th>Nama</th>
-              <th>Departemen</th>
-              <th>Penerima</th>
-              <th>Dept. Penerima</th>
-              <th>Keterangan</th>
-              <th>Aset</th>
-              <th>Ttd</th>
-              <th>Aksi</th>
-            </tr>
-          </thead>
-          <tbody></tbody>
-        </table>
-      </div>
-      <div id="paginasi" class="paginasi"></div>
-      <p id="kosong" class="pesan">Belum ada data.</p>
-    </section>
   </div>
 
   <script src="app.js"></script>
