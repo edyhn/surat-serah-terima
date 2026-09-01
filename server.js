@@ -8,7 +8,34 @@ const storage = require('./lib/storage');
 const QRCode = require('qrcode');
 
 const app = express();
-app.use(express.json({ limit: '10mb' }));
+
+// Rate limit sederhana in-memory: 120 req / menit per IP untuk /api
+const rateMap = new Map();
+const RATE_WINDOW = 60 * 1000;
+const RATE_MAX = 120;
+app.use('/api', (req, res, next) => {
+  const ip = req.ip || req.connection.remoteAddress || 'unknown';
+  const now = Date.now();
+  const rec = rateMap.get(ip) || { count: 0, start: now };
+  if (now - rec.start > RATE_WINDOW) {
+    rec.count = 0;
+    rec.start = now;
+  }
+  rec.count++;
+  rateMap.set(ip, rec);
+  if (rec.count > RATE_MAX) {
+    return res.status(429).json({ error: 'Terlalu banyak permintaan, coba lagi nanti.' });
+  }
+  next();
+});
+setInterval(() => {
+  const now = Date.now();
+  for (const [k, v] of rateMap.entries()) {
+    if (now - v.start > RATE_WINDOW * 2) rateMap.delete(k);
+  }
+}, RATE_WINDOW).unref();
+
+app.use(express.json({ limit: '5mb' }));
 app.use(
   express.static(path.join(__dirname, 'public'), {
     etag: true,
@@ -19,7 +46,8 @@ app.use(
     },
   })
 );
-app.use('/pdf', express.static(dirPdf()));
+// PDF arsip — tetap publik tapi hanya file .pdf yang di-serve; enumerasi dibatasi oleh nama yang tidak mudah ditebak (nomor surat)
+app.use('/pdf', express.static(dirPdf(), { fallthrough: false }));
 
 function validasiData(body) {
   const bersih = (v) => (typeof v === 'string' ? v.trim() : '');
@@ -41,7 +69,18 @@ function validasiData(body) {
     if (typeof k !== 'string') return { error: 'Daftar aset tidak valid.' };
   }
   data.aset = [...new Set(aset.map((k) => k.trim()).filter(Boolean))];
+  // cegah payload aset terlalu panjang
+  if (data.aset.length > 50) return { error: 'Terlalu banyak aset (maks 50).' };
   return { data };
+}
+
+async function validasiKodeAsetAda(kodeAset) {
+  if (!kodeAset || kodeAset.length === 0) return null;
+  const semua = await storage.aset.daftarAset();
+  const ada = new Set(semua.map((a) => String(a.kode)));
+  const tidakAda = kodeAset.filter((k) => !ada.has(String(k)));
+  if (tidakAda.length) return `Kode aset tidak ditemukan: ${tidakAda.join(', ')}`;
+  return null;
 }
 
 const PIHAK_TTD = ['menyerahkan', 'menerima', 'hrd'];
@@ -159,8 +198,18 @@ async function simpanTtdSurat(nomor, ttdBaru) {
 }
 
 function ttdUrl(req, nomor, pihak) {
+  // Prefer BASE_URL env agar tidak tergantung Host header (anti host-header injection)
+  const baseEnv = process.env.BASE_URL ? String(process.env.BASE_URL).replace(/\/$/, '') : null;
+  if (baseEnv) {
+    let url = `${baseEnv}/ttd.html?nomor=${encodeURIComponent(String(nomor))}`;
+    if (PIHAK_TTD.includes(pihak)) url += `&pihak=${encodeURIComponent(pihak)}`;
+    return url;
+  }
   const proto = req.headers['x-forwarded-proto'] || req.protocol || 'https';
-  let url = `${proto}://${req.get('host')}/ttd.html?nomor=${encodeURIComponent(String(nomor))}`;
+  let host = req.get('host') || 'localhost';
+  // sanitasi host: hanya huruf, angka, titik, dash, colon (port)
+  host = String(host).replace(/[^a-zA-Z0-9.\-:]/g, '').slice(0, 200) || 'localhost';
+  let url = `${proto}://${host}/ttd.html?nomor=${encodeURIComponent(String(nomor))}`;
   if (PIHAK_TTD.includes(pihak)) url += `&pihak=${encodeURIComponent(pihak)}`;
   return url;
 }
@@ -183,8 +232,7 @@ function statusTtdDariMap(map, nomor) {
 }
 
 async function aturStatusAset(nomorSurat, kodeLama, kodeBaru, kategori) {
-  const semua = await storage.aset.kodeAsetPerNomor();
-  const daftar = await storage.bacaRiwayat();
+  const [semua, daftar] = await Promise.all([storage.aset.kodeAsetPerNomor(), storage.bacaRiwayat()]);
   const aktif = new Set();
   for (const s of daftar) {
     if (s.kategori === 'penyerahan' && s.nomor !== nomorSurat) {
@@ -361,6 +409,8 @@ app.post('/api/surat', async (req, res) => {
     if (hasil.error) return res.status(400).json({ error: hasil.error });
 
     const kodeAset = hasil.data.aset || [];
+    const errAset = await validasiKodeAsetAda(kodeAset);
+    if (errAset) return res.status(400).json({ error: errAset });
     const surat = await buatSurat(hasil.data);
 
     if (kodeAset.length) {
@@ -389,6 +439,8 @@ app.put('/api/surat/:nomor', async (req, res) => {
     if (!lama) return res.status(404).json({ error: 'Nomor surat tidak ditemukan.' });
 
     const kodeAset = hasil.data.aset || [];
+    const errAset = await validasiKodeAsetAda(kodeAset);
+    if (errAset) return res.status(400).json({ error: errAset });
     const kodeAsetLama = (await storage.aset.kodeAsetPerNomor())[lama.nomor] || [];
     const surat = { ...lama, ...hasil.data };
     await storage.updateRiwayat(lama.nomor, surat);

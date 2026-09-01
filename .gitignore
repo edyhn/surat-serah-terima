@@ -7,6 +7,7 @@ node_modules/
 
 # Data lokal (mode file)
 data/
+backups/
 
 # Cache & temp Supabase CLI
 supabase/.temp/
