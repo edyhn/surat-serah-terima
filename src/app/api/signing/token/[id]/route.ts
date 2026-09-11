@@ -56,7 +56,7 @@ export async function POST(request: NextRequest, context: Context) {
       nomor: t.nomor_surat,
       pihak: t.pihak as import("@/types/token").PihakTtd,
       scopes: t.scopes as import("@/types/token").TokenScope[],
-      createdBy: userId,
+      createdBy: "system-operator",
       documentVersion: version,
       documentDigest: digest,
     });
