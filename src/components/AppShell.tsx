@@ -1,10 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
-import { FileText, LogOut, Package, Shield, Sparkles } from "lucide-react";
+import { usePathname } from "next/navigation";
+import { FileText, Package, Shield, Sparkles } from "lucide-react";
 import type { ReactNode } from "react";
-import { createClient } from "@/lib/supabase";
 import { cn } from "@/lib/utils";
 import { useFeedback } from "@/stores/feedback";
 
@@ -15,20 +14,9 @@ const navigation = [
 
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
-  const router = useRouter();
   const { message, clear } = useFeedback();
 
   if (pathname === "/login") return children;
-
-  async function logout() {
-    try {
-      await createClient().auth.signOut();
-      router.replace("/login");
-      router.refresh();
-    } catch {
-      router.replace("/login");
-    }
-  }
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 font-sans selection:bg-blue-500 selection:text-white">
@@ -83,18 +71,6 @@ export function AppShell({ children }: { children: ReactNode }) {
                 </Link>
               );
             })}
-
-            <div className="mx-1 h-5 w-px bg-slate-800" aria-hidden="true" />
-
-            <button
-              onClick={logout}
-              aria-label="Keluar"
-              title="Keluar dari akun"
-              className="flex min-h-10 items-center gap-2 rounded-xl px-3 text-xs font-medium text-slate-400 hover:bg-red-500/10 hover:text-red-400 transition-colors"
-            >
-              <LogOut className="size-4" />
-              <span className="hidden sm:inline">Keluar</span>
-            </button>
           </nav>
         </div>
       </header>
