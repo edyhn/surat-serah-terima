@@ -184,7 +184,7 @@ export const SIGNING_SESSION_COOKIE = "__signing_session";
 /** Konfigurasi cookie sesi signing (nilai; options diset di route) */
 export const SIGNING_COOKIE_OPTIONS = {
   httpOnly: true,
-  secure: process.env.NODE_ENV === "production",
+  secure: true,
   sameSite: "strict" as const,
   path: "/sign",
 };

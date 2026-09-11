@@ -45,6 +45,10 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    if (!session.scopes?.includes("read:context")) {
+      return NextResponse.json({ error: "Sesi tidak valid atau sudah berakhir." }, { status: 403 });
+    }
+
     // Verifikasi digest dokumen: pastikan dokumen belum berubah sejak token diterbitkan
     const { digest: currentDigest } = await getCurrentDocumentVersion(session.nomor_surat);
 
@@ -64,15 +68,14 @@ export async function GET(request: NextRequest) {
       });
 
       return NextResponse.json(
-        { error: "Dokumen telah berubah. Link tanda tangan ini tidak lagi berlaku. Minta link baru." },
-        { status: 409 },
+        { error: "Sesi tidak valid atau sudah berakhir." }, { status: 403 },
       );
     }
 
     // Ambil data dokumen
     const surat = await detailedSurat(session.nomor_surat);
     if (!surat) {
-      return NextResponse.json({ error: "Surat tidak ditemukan." }, { status: 404 });
+      return NextResponse.json({ error: "Sesi tidak valid atau sudah berakhir." }, { status: 403 });
     }
 
     // Kembalikan context (hanya field yang dibutuhkan UI, sesuai scope)

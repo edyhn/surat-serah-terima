@@ -10,6 +10,7 @@ import { NextRequest } from "next/server";
 import { middleware } from "@/middleware";
 import { GET as listSigningTokens, POST as issueSigningToken } from "@/app/api/signing/token/route";
 import { DELETE as revokeSigningToken, POST as rotateSigningToken } from "@/app/api/signing/token/[id]/route";
+import { GET as exchangeSigningToken } from "@/app/sign/exchange/[token]/route";
 
 const surat: Surat = { nomor: "001/SRT-ST/2026", tanggal: "10 September 2026", tanggalSingkat: "10/09/2026", kategori: "penyerahan", nama: "Edy", departemen: "IT", penerima: "Mika", departemenPenerima: "HRD", keterangan: "Laptop untuk operasional", namaHrd: "HRD", aset: [{ kode: "INV/IT-001", nama: "Laptop", kategori: "IT", nilai: 10_000_000, kondisi: "baik", status: "dipakai" }] };
 
@@ -63,5 +64,18 @@ describe("API contracts tanpa Supabase", () => {
     ]);
 
     expect(responses.map((response) => response.status)).toEqual([401, 401, 401, 401]);
+  });
+
+  it("exchange malformed memakai redirect generik, URL bersih, dan security headers", async () => {
+    const response = await exchangeSigningToken(
+      new NextRequest("https://app.example/sign/exchange/bad"),
+      { params: Promise.resolve({ token: "bad" }) },
+    );
+    expect(response.status).toBe(303);
+    expect(response.headers.get("location")).toBe("https://app.example/sign/invalid");
+    expect(response.headers.get("cache-control")).toContain("no-store");
+    expect(response.headers.get("referrer-policy")).toBe("no-referrer");
+    expect(response.headers.get("content-security-policy")).toContain("frame-ancestors 'none'");
+    expect(response.headers.get("set-cookie")).toBeNull();
   });
 });

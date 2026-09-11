@@ -12,6 +12,8 @@
  */
 
 import { describe, expect, it } from "vitest";
+import sharp from "sharp";
+import { decodeAndSanitizeSignature } from "@/lib/signature-image";
 import {
   canonicalize,
   computeDocumentDigest,
@@ -26,6 +28,23 @@ import {
   verifyDocumentDigest,
   verifyToken,
 } from "@/lib/token-utils";
+
+describe("signature image hardening", () => {
+  it("melakukan decode penuh, membatasi dimensi, dan re-encode PNG", async () => {
+    const input = await sharp({ create: { width: 64, height: 32, channels: 4, background: "white" } }).png().toBuffer();
+    const sanitized = await decodeAndSanitizeSignature(`data:image/png;base64,${input.toString("base64")}`);
+    expect(sanitized.subarray(0, 8)).toEqual(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]));
+    const metadata = await sharp(sanitized).metadata();
+    expect(metadata.format).toBe("png");
+  });
+
+  it("menolak payload rusak dan polyglot dengan trailing bytes", async () => {
+    await expect(decodeAndSanitizeSignature("data:image/png;base64," + Buffer.alloc(200).toString("base64"))).rejects.toThrow("INVALID_SIGNATURE");
+    const png = await sharp({ create: { width: 32, height: 32, channels: 4, background: "black" } }).png().toBuffer();
+    const polyglot = Buffer.concat([png, Buffer.from("<script>alert(1)</script>")]);
+    await expect(decodeAndSanitizeSignature(`data:image/png;base64,${polyglot.toString("base64")}`)).rejects.toThrow("INVALID_SIGNATURE");
+  });
+});
 
 // ─── generateRawToken ─────────────────────────────────────────────────────────
 

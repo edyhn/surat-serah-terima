@@ -22,16 +22,16 @@ POST /api/signing/token  (autentikasi Supabase wajib)
     │
     ├── generate 256-bit CSPRNG raw token
     ├── hash SHA-256 → simpan ke DB (bukan raw token)
-    ├── buat signing URL: BASE_URL/sign/exchange?t={rawToken}
+    ├── buat signing URL: BASE_URL/sign/exchange/{rawToken}
     │
     ▼
 QR Code / Link → Pihak Eksternal
     │
     ▼
-/sign/exchange  (tidak ada UI sensitif)
+/sign/exchange/{token}  (route handler tanpa UI sensitif)
     │
     ▼
-GET /api/signing/exchange?t={rawToken}
+GET /sign/exchange/{rawToken}
     │
     ├── hash rawToken → lookup by token_hash
     ├── validasi state = 'active' dan belum expired
@@ -41,7 +41,7 @@ GET /api/signing/exchange?t={rawToken}
     ├── REDACT token dari semua log
     │
     ▼
-Redirect 302 ke /sign/session?nomor=...&pihak=...  (URL bersih, tanpa token)
+Redirect 303 ke /sign/session  (URL bersih, tanpa token atau metadata surat)
     │
     ▼
 GET /api/signing/context  (cookie wajib)
@@ -125,8 +125,11 @@ Sebelum commit TTD:
 
 ### Cookie Sesi
 ```
-Set-Cookie: __signing_session={sessionId}; HttpOnly; Secure; SameSite=Strict; Path=/sign; Max-Age={TTL}
+Set-Cookie: __signing_session={256-bit-secret}; HttpOnly; Secure; SameSite=Strict; Path=/sign; Max-Age={TTL}
 ```
+
+Database hanya menyimpan hash SHA-256 secret sesi. Migrasi hardening
+`002_signing_session_hardening.sql` mencabut sesi lama yang masih memakai UUID mentah.
 
 ## Revocation
 

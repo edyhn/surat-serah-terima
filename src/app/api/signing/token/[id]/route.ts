@@ -73,7 +73,7 @@ export async function POST(request: NextRequest, context: Context) {
     });
 
     const baseUrl = process.env.BASE_URL?.replace(/\/$/, "") ?? "";
-    const signingUrl = `${baseUrl}/sign/exchange?t=${result.rawToken}`;
+    const signingUrl = `${baseUrl}/sign/exchange/${result.rawToken}`;
 
     return NextResponse.json({
       tokenId: result.tokenId,

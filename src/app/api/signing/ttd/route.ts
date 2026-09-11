@@ -39,47 +39,52 @@ import {
   SIGNING_SESSION_COOKIE,
   verifyDocumentDigest,
 } from "@/lib/token-utils";
-import { findSurat, linkMap, listLinks, loadTtd, saveFile, saveTtd, ttdDataUrls, updateSurat } from "@/lib/data";
+import { findSurat, linkMap, listLinks, loadTtd, saveFile, saveTtd } from "@/lib/data";
 import { buatPdf } from "@/lib/pdf";
 import { assetsForCodes } from "@/lib/surat-service";
 import type { PihakTtd } from "@/types/token";
+import { decodeAndSanitizeSignature } from "@/lib/signature-image";
 
 export const runtime = "nodejs";
+const PUBLIC_ERROR = "Sesi tidak valid atau sudah berakhir.";
 
 const ttdSessionSchema = z.object({
   ttd: z.string()
     .startsWith("data:image/png;base64,", "Tanda tangan harus berupa PNG.")
     .max(1_500_000, "Ukuran tanda tangan terlalu besar."),
-  idempotencyKey: z.string().min(1).max(128).optional(),
+  idempotencyKey: z.string().regex(/^[A-Za-z0-9_-]{16,128}$/),
   nama: z.string().trim().max(200).optional(), // untuk pihak HRD: isi nama
   consent: z.literal(true).refine((v) => v === true, { message: "Consent diperlukan sebelum menandatangani." }),
 });
 
 export async function POST(request: NextRequest) {
   const correlationId = generateCorrelationId();
+  let auditSessionId: string | undefined;
 
   // 1. Baca cookie sesi
-  const sessionId = request.cookies.get(SIGNING_SESSION_COOKIE)?.value;
-  if (!sessionId) {
+  const sessionSecret = request.cookies.get(SIGNING_SESSION_COOKIE)?.value;
+  if (!sessionSecret) {
     return NextResponse.json(
-      { error: "Sesi tidak ditemukan. Gunakan link yang dikirimkan." },
+      { error: PUBLIC_ERROR },
       { status: 401 },
     );
   }
 
   try {
     // 2. Validasi sesi
-    const session = await validateSigningSession(sessionId, correlationId);
+    const session = await validateSigningSession(sessionSecret, correlationId);
+    const sessionId = session.session_id;
+    auditSessionId = sessionId;
     if (!session.valid || !session.nomor_surat || !session.pihak) {
       return NextResponse.json(
-        { error: "Sesi tidak valid atau sudah berakhir." },
+        { error: PUBLIC_ERROR },
         { status: 401 },
       );
     }
 
     // 3. Cek scope
     if (!session.scopes?.includes("sign:ttd")) {
-      return NextResponse.json({ error: "Scope tanda tangan tidak diizinkan." }, { status: 403 });
+      return NextResponse.json({ error: PUBLIC_ERROR }, { status: 403 });
     }
 
     // 4. Cek idempotency
@@ -93,7 +98,7 @@ export async function POST(request: NextRequest) {
       throw e;
     }
 
-    if (body.idempotencyKey) {
+    {
       const receipt = await getIdempotencyReceipt(body.idempotencyKey);
       if (receipt) {
         // Replay deterministik: kembalikan response yang sama
@@ -120,16 +125,14 @@ export async function POST(request: NextRequest) {
       });
 
       return NextResponse.json(
-        { error: "Dokumen telah berubah. Sesi ini tidak lagi berlaku. Minta link baru." },
-        { status: 409 },
+        { error: PUBLIC_ERROR }, { status: 403 },
       );
     }
 
     // 6. Validasi dan decode PNG TTD
-    const { buffer: ttdBuffer, error: imgError } = validateAndDecodePng(body.ttd);
-    if (imgError || !ttdBuffer) {
-      return NextResponse.json({ error: imgError ?? "Gambar tanda tangan tidak valid." }, { status: 400 });
-    }
+    let ttdBuffer: Buffer;
+    try { ttdBuffer = await decodeAndSanitizeSignature(body.ttd); }
+    catch { return NextResponse.json({ error: "Gambar tanda tangan tidak valid." }, { status: 400 }); }
 
     // 7. Simpan TTD + buat PDF
     const nomor = session.nomor_surat;
@@ -137,13 +140,12 @@ export async function POST(request: NextRequest) {
 
     const surat = await findSurat(nomor);
     if (!surat) {
-      return NextResponse.json({ error: "Surat tidak ditemukan." }, { status: 404 });
+      return NextResponse.json({ error: PUBLIC_ERROR }, { status: 403 });
     }
 
-    // Isi namaHrd jika pihak HRD dan nama dikirim
-    if (pihak === "hrd" && body.nama) {
-      surat.namaHrd = body.nama;
-      await updateSurat(nomor, surat);
+    // Identitas yang memengaruhi PDF tidak boleh dimutasi oleh signer setelah digest diverifikasi.
+    if (pihak === "hrd" && body.nama && body.nama !== surat.namaHrd) {
+      return NextResponse.json({ error: "Identitas penandatangan tidak cocok dengan dokumen." }, { status: 409 });
     }
 
     // Simpan TTD (hanya pihak ini)
@@ -179,11 +181,10 @@ export async function POST(request: NextRequest) {
       nomor,
       documentVersion: session.document_version,
       pdf: pdf.namaFile,
-      ttd: ttdDataUrls(stored),
     };
 
     // 8. Simpan receipt idempotency
-    if (body.idempotencyKey) {
+    {
       await saveIdempotencyReceipt({
         idempotencyKey: body.idempotencyKey,
         sessionId,
@@ -224,44 +225,11 @@ export async function POST(request: NextRequest) {
       pihak: null,
       outcome: "failure",
       correlationId,
-      sessionId,
+      sessionId: auditSessionId,
       actor: null,
       actorType: "external_signer",
       metadata: { error: error instanceof Error ? error.message : "unknown" },
     });
-    return apiError(error, "Gagal menyimpan tanda tangan.");
+    return apiError(error, PUBLIC_ERROR, 403);
   }
-}
-
-/**
- * Validasi gambar PNG: cek magic bytes, decode base64, batas ukuran.
- * TIDAK hanya mengandalkan MIME type.
- */
-function validateAndDecodePng(
-  dataUrl: string,
-): { buffer: Buffer | null; error: string | null } {
-  const base64 = dataUrl.slice(dataUrl.indexOf(",") + 1);
-
-  let buffer: Buffer;
-  try {
-    buffer = Buffer.from(base64, "base64");
-  } catch {
-    return { buffer: null, error: "Gambar tidak dapat di-decode." };
-  }
-
-  // Periksa PNG magic bytes: \x89PNG\r\n\x1a\n
-  const PNG_MAGIC = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]);
-  if (buffer.length < 8 || !buffer.subarray(0, 8).equals(PNG_MAGIC)) {
-    return { buffer: null, error: "Gambar tanda tangan bukan PNG yang valid." };
-  }
-
-  // Batas ukuran: minimal 100 byte, maksimal 1 MB
-  if (buffer.length < 100) {
-    return { buffer: null, error: "Gambar tanda tangan terlalu kecil." };
-  }
-  if (buffer.length > 1_048_576) {
-    return { buffer: null, error: "Ukuran gambar tanda tangan melebihi batas." };
-  }
-
-  return { buffer, error: null };
 }

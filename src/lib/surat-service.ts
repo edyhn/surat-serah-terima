@@ -2,6 +2,7 @@ import { deleteSurat, findSurat, insertSurat, linkMap, listAset, listLinks, list
 import { nextNomor } from "@/lib/nomor";
 import { buatPdf } from "@/lib/pdf";
 import type { Aset, Surat, SuratInput } from "@/types";
+import { bumpDocumentVersion, digestFromSurat, initializeDocumentDigest } from "@/lib/token-data";
 
 export async function assetsForCodes(codes: string[]) {
   const map = new Map((await listAset()).map((asset) => [asset.kode, asset]));
@@ -38,6 +39,7 @@ export async function createSurat(input: SuratInput) {
   const surat: Surat = { ...input, ...numbered };
   await insertSurat(surat);
   await setLinks(surat.nomor, input.aset);
+  await initializeDocumentDigest(surat.nomor, digestFromSurat(surat, input.aset));
   await setAssetStatus(input.aset, resolveAssetStatus(input));
   return persistDocument(surat, input);
 }
@@ -45,8 +47,12 @@ export async function createSurat(input: SuratInput) {
 export async function editSurat(nomor: string, input: SuratInput) {
   const current = await findSurat(nomor);
   if (!current) return null;
+  const previousCodes = linkMap(await listLinks())[nomor] ?? [];
   await assertAssets(input.aset);
   const surat: Surat = { ...current, ...input };
+  const digest = digestFromSurat(surat, input.aset);
+  const previousDigest = digestFromSurat(current, previousCodes);
+  if (digest !== previousDigest) await bumpDocumentVersion(nomor, digest);
   await updateSurat(nomor, surat);
   await setLinks(nomor, input.aset);
   await setAssetStatus(input.aset, resolveAssetStatus(input));

@@ -49,55 +49,18 @@ export async function bumpDocumentVersion(
   digest: string,
   correlationId: string = generateCorrelationId(),
 ): Promise<{ version: number; digest: string }> {
-  const db = createAdminClient();
+  const { data, error } = await createAdminClient().rpc("bump_document_version", {
+    p_nomor: nomor, p_digest: digest, p_correlation_id: correlationId,
+  });
+  if (error) throw error;
+  const row = Array.isArray(data) ? data[0] : data;
+  if (!row) throw new Error("Gagal update versi dokumen.");
+  return { version: Number(row.document_version), digest: String(row.document_digest) };
+}
 
-  // Atomik: increment version, set digest baru
-  const { data, error } = await db
-    .from("surat")
-    .update({
-      document_version: db.rpc("document_version + 1" as never) as never, // raw SQL increment via RPC
-      document_digest: digest,
-    })
-    .eq("nomor", nomor)
-    .select("document_version, document_digest")
-    .single();
-
-  // Fallback: jika RPC expression tidak didukung, gunakan read-then-write
-  if (error || !data) {
-    const { data: current } = await db
-      .from("surat")
-      .select("document_version")
-      .eq("nomor", nomor)
-      .single();
-
-    const newVersion = ((current as { document_version?: number })?.document_version ?? 0) + 1;
-
-    const { data: updated, error: updateError } = await db
-      .from("surat")
-      .update({ document_version: newVersion, document_digest: digest })
-      .eq("nomor", nomor)
-      .select("document_version, document_digest")
-      .single();
-
-    if (updateError) throw updateError;
-    if (!updated) throw new Error("Gagal update versi dokumen.");
-
-    // Cabut semua token aktif versi lama
-    await revokeAllActiveTokens(nomor, correlationId);
-
-    return {
-      version: (updated as { document_version: number }).document_version,
-      digest: (updated as { document_digest: string }).document_digest,
-    };
-  }
-
-  // Cabut semua token aktif versi lama
-  await revokeAllActiveTokens(nomor, correlationId);
-
-  return {
-    version: (data as { document_version: number }).document_version,
-    digest: (data as { document_digest: string }).document_digest,
-  };
+export async function initializeDocumentDigest(nomor: string, digest: string): Promise<void> {
+  const { error } = await createAdminClient().from("surat").update({ document_digest: digest }).eq("nomor", nomor).eq("document_digest", "");
+  if (error) throw error;
 }
 
 /**
@@ -225,10 +188,13 @@ export async function exchangeToken(
   correlationId: string = generateCorrelationId(),
 ) {
   const tokenHash = hashToken(rawToken);
+  const sessionSecret = generateRawToken();
+  const sessionHash = hashToken(sessionSecret);
   const db = createAdminClient();
 
   const { data, error } = await db.rpc("exchange_signing_token", {
     p_token_hash: tokenHash,
+    p_session_hash: sessionHash,
     p_correlation_id: correlationId,
   });
 
@@ -243,7 +209,7 @@ export async function exchangeToken(
     throw new Error("TOKEN_INVALID");
   }
 
-  return data[0] as {
+  return { ...(data[0] as {
     session_id: string;
     nomor_surat: string;
     pihak: PihakTtd;
@@ -252,7 +218,7 @@ export async function exchangeToken(
     document_digest: string;
     expires_at: string;
     idle_expires_at: string;
-  };
+  }), session_secret: sessionSecret };
 }
 
 // ─── Session Validation ───────────────────────────────────────────────────────
@@ -262,13 +228,13 @@ export async function exchangeToken(
  * Menggunakan RPC atomik di DB.
  */
 export async function validateSigningSession(
-  sessionId: string,
+  sessionSecret: string,
   correlationId: string = generateCorrelationId(),
 ) {
   const db = createAdminClient();
 
   const { data, error } = await db.rpc("validate_signing_session", {
-    p_session_id: sessionId,
+    p_session_hash: hashToken(sessionSecret),
     p_correlation_id: correlationId,
   });
 
@@ -278,6 +244,7 @@ export async function validateSigningSession(
   }
 
   return data[0] as {
+    session_id: string;
     valid: boolean;
     state: string;
     nomor_surat: string | null;

@@ -6,7 +6,6 @@ import { NextResponse, type NextRequest } from "next/server";
  */
 const SIGNING_PUBLIC_ROUTES = [
   /^\/sign($|\/)/,              // Halaman signing eksternal
-  /^\/api\/signing\/exchange/,  // Exchange token → sesi (validasi via token hash)
   /^\/api\/signing\/context/,   // Context dokumen (validasi via cookie sesi)
   /^\/api\/signing\/ttd/,       // Submit TTD (validasi via cookie sesi)
   /^\/api\/signing\/cleanup/,   // Cleanup job (validasi via internal key)

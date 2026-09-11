@@ -87,7 +87,7 @@ export async function POST(request: NextRequest) {
 
     // Bangun URL signing (tanpa expose ke log)
     const baseUrl = process.env.BASE_URL?.replace(/\/$/, "") ?? "";
-    const signingUrl = `${baseUrl}/sign/exchange?t=${result.rawToken}`;
+    const signingUrl = `${baseUrl}/sign/exchange/${result.rawToken}`;
 
     return NextResponse.json({
       tokenId: result.tokenId,
