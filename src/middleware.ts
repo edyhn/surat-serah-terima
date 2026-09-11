@@ -8,6 +8,7 @@ const SIGNING_PUBLIC_ROUTES = [
   /^\/sign($|\/)/,              // Halaman signing eksternal
   /^\/api\/signing\/context/,   // Context dokumen (validasi via cookie sesi)
   /^\/api\/signing\/ttd/,       // Submit TTD (validasi via cookie sesi)
+  /^\/api\/signing\/(pdf|qr)$/,  // Resource scoped (validasi via cookie sesi)
   /^\/api\/signing\/cleanup/,   // Cleanup job (validasi via internal key)
 ];
 

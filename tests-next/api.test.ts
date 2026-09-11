@@ -11,6 +11,8 @@ import { middleware } from "@/middleware";
 import { GET as listSigningTokens, POST as issueSigningToken } from "@/app/api/signing/token/route";
 import { DELETE as revokeSigningToken, POST as rotateSigningToken } from "@/app/api/signing/token/[id]/route";
 import { GET as exchangeSigningToken } from "@/app/sign/exchange/[token]/route";
+import { GET as signingPdf } from "@/app/api/signing/pdf/route";
+import { GET as signingQr } from "@/app/api/signing/qr/route";
 
 const surat: Surat = { nomor: "001/SRT-ST/2026", tanggal: "10 September 2026", tanggalSingkat: "10/09/2026", kategori: "penyerahan", nama: "Edy", departemen: "IT", penerima: "Mika", departemenPenerima: "HRD", keterangan: "Laptop untuk operasional", namaHrd: "HRD", aset: [{ kode: "INV/IT-001", nama: "Laptop", kategori: "IT", nilai: 10_000_000, kondisi: "baik", status: "dipakai" }] };
 
@@ -77,5 +79,17 @@ describe("API contracts tanpa Supabase", () => {
     expect(response.headers.get("referrer-policy")).toBe("no-referrer");
     expect(response.headers.get("content-security-policy")).toContain("frame-ancestors 'none'");
     expect(response.headers.get("set-cookie")).toBeNull();
+  });
+
+  it("resource PDF/QR signing menolak request tanpa sesi secara generik", async () => {
+    const [pdf, qr] = await Promise.all([
+      signingPdf(new NextRequest("https://app.example/api/signing/pdf")),
+      signingQr(new NextRequest("https://app.example/api/signing/qr")),
+    ]);
+    expect([pdf.status, qr.status]).toEqual([403, 403]);
+    expect(await pdf.json()).toEqual({ error: "Sesi tidak valid atau sudah berakhir." });
+    expect(await qr.json()).toEqual({ error: "Sesi tidak valid atau sudah berakhir." });
+    expect(pdf.headers.get("cache-control")).toContain("no-store");
+    expect(qr.headers.get("x-content-type-options")).toBe("nosniff");
   });
 });

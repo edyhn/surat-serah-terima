@@ -69,6 +69,10 @@ POST /api/signing/ttd  (cookie wajib, scope sign:ttd)
 Receipt: {ok: true, nomor, pihak, documentVersion}  (tanpa token)
 ```
 
+Resource eksternal memakai `GET /api/signing/pdf` dan `GET /api/signing/qr`.
+Keduanya memerlukan cookie sesi aktif/read-only dan masing-masing scope `read:pdf`
+atau `read:qr`; QR hanya memuat nomor, versi, dan digest evidence—tidak pernah token.
+
 ## State Machine Token
 
 ```
