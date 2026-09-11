@@ -20,7 +20,7 @@ export function TtdCanvas({
       context.lineWidth = 2.5;
       context.lineCap = "round";
       context.lineJoin = "round";
-      context.strokeStyle = "#ffffff";
+      context.strokeStyle = "#0f172a";
     }
   }, []);
 
@@ -68,13 +68,13 @@ export function TtdCanvas({
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between">
-        <span className="text-xs font-semibold text-slate-300">Goreskan Tanda Tangan</span>
+        <span className="text-xs font-semibold text-slate-700">Goreskan Tanda Tangan</span>
         {!empty && (
           <button
             type="button"
             onClick={clear}
             disabled={disabled}
-            className="flex items-center gap-1 text-[11px] font-medium text-slate-400 hover:text-red-400 transition-colors"
+            className="flex items-center gap-1 text-[11px] font-medium text-slate-500 hover:text-red-600 transition-colors"
           >
             <Eraser className="size-3" />
             Hapus
@@ -82,13 +82,13 @@ export function TtdCanvas({
         )}
       </div>
 
-      <div className="relative overflow-hidden rounded-2xl border border-slate-800 bg-slate-950 p-1">
+      <div className="relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-1 shadow-sm">
         <canvas
           ref={ref}
           width={640}
           height={220}
           aria-label="Area gambar tanda tangan"
-          className="h-36 w-full touch-none rounded-xl bg-slate-950 cursor-crosshair focus:outline-none"
+          className="h-36 w-full touch-none rounded-xl bg-white cursor-crosshair focus:outline-none"
           tabIndex={disabled ? -1 : 0}
           onPointerDown={start}
           onPointerMove={move}
@@ -96,7 +96,7 @@ export function TtdCanvas({
           onPointerCancel={end}
         />
         {empty && (
-          <div className="pointer-events-none absolute inset-0 flex items-center justify-center text-xs text-slate-600">
+          <div className="pointer-events-none absolute inset-0 flex items-center justify-center text-xs text-slate-400">
             Tandatangani di dalam area kotak ini
           </div>
         )}

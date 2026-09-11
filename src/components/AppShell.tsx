@@ -2,13 +2,13 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { FileText, Package, Shield, Sparkles } from "lucide-react";
+import { FileText, Package, Shield } from "lucide-react";
 import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import { useFeedback } from "@/stores/feedback";
 
 const navigation = [
-  { href: "/surat", label: "Surat Studio", icon: FileText },
+  { href: "/surat", label: "Surat Serah Terima", icon: FileText },
   { href: "/aset", label: "Inventaris Aset", icon: Package },
 ];
 
@@ -19,40 +19,33 @@ export function AppShell({ children }: { children: ReactNode }) {
   if (pathname === "/login") return children;
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 font-sans selection:bg-blue-500 selection:text-white">
+    <div className="min-h-screen bg-slate-50 text-slate-900 font-sans selection:bg-blue-100 selection:text-blue-900">
       <a
         href="#konten"
-        className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-xl focus:bg-blue-600 focus:p-3 focus:text-white focus:shadow-2xl"
+        className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-lg focus:bg-white focus:p-3 focus:text-slate-900 focus:shadow-xl focus:ring-1 focus:ring-slate-200"
       >
         Lewati ke konten
       </a>
 
-      {/* Top Glass Navigation Bar */}
-      <header className="sticky top-0 z-40 border-b border-slate-800/80 bg-slate-950/80 backdrop-blur-xl">
-        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3.5 sm:px-6">
-          {/* Logo & Brand Identity */}
+      {/* Modern Clean Top Navigation */}
+      <header className="sticky top-0 z-40 border-b border-slate-200/80 bg-white/90 backdrop-blur-md">
+        <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3 sm:px-6">
+          {/* Logo & Clean Title */}
           <Link
             href="/surat"
-            className="flex items-center gap-3.5 group rounded-xl focus-visible:outline-2 focus-visible:outline-blue-500 focus-visible:outline-offset-4"
+            className="flex items-center gap-3 group focus-visible:outline-2 focus-visible:outline-blue-600 focus-visible:outline-offset-2 rounded-lg"
           >
-            <div className="relative flex size-10 items-center justify-center rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-500 p-0.5 shadow-lg shadow-blue-500/20 group-hover:shadow-blue-500/35 transition-all">
-              <div className="flex size-full items-center justify-center rounded-[10px] bg-slate-950">
-                <Shield className="size-5 text-blue-400 group-hover:scale-105 transition-transform" />
-              </div>
+            <div className="flex size-9 items-center justify-center rounded-lg bg-slate-900 text-white shadow-sm transition-transform group-hover:scale-105">
+              <Shield className="size-4.5" />
             </div>
             <div>
-              <div className="flex items-center gap-1.5">
-                <strong className="text-sm font-bold tracking-tight text-white">Surat Serah Terima</strong>
-                <span className="inline-flex items-center gap-1 rounded-full border border-blue-500/30 bg-blue-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-blue-300">
-                  <Sparkles className="size-2.5" /> v2.0
-                </span>
-              </div>
-              <p className="hidden text-xs text-slate-400 sm:block">Digital Document Hub & Verified Signatures</p>
+              <span className="text-sm font-bold tracking-tight text-slate-900">Surat Serah Terima</span>
+              <span className="ml-2 hidden text-[11px] font-medium text-slate-500 sm:inline">PT SRT</span>
             </div>
           </Link>
 
           {/* Navigation Links */}
-          <nav aria-label="Navigasi utama" className="flex items-center gap-1.5">
+          <nav aria-label="Navigasi utama" className="flex items-center gap-1">
             {navigation.map(({ href, label, icon: Icon }) => {
               const active = pathname.startsWith(href);
               return (
@@ -60,13 +53,13 @@ export function AppShell({ children }: { children: ReactNode }) {
                   key={href}
                   href={href}
                   className={cn(
-                    "flex min-h-10 items-center gap-2 rounded-xl px-3.5 text-xs font-semibold tracking-wide transition-all",
+                    "flex min-h-9 items-center gap-2 rounded-lg px-3 text-xs font-semibold tracking-wide transition-all",
                     active
-                      ? "bg-blue-600/15 text-blue-300 border border-blue-500/30 shadow-inner"
-                      : "text-slate-400 hover:bg-slate-900 hover:text-slate-200"
+                      ? "bg-slate-100 text-slate-900 font-bold"
+                      : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
                   )}
                 >
-                  <Icon className={cn("size-4", active ? "text-blue-400" : "text-slate-400")} />
+                  <Icon className={cn("size-3.5", active ? "text-blue-600" : "text-slate-400")} />
                   <span>{label}</span>
                 </Link>
               );
@@ -75,15 +68,15 @@ export function AppShell({ children }: { children: ReactNode }) {
         </div>
       </header>
 
-      {/* Global Floating Notification Feedback */}
+      {/* Floating Notification Feedback */}
       {message && (
         <div
           role="status"
-          className="fixed bottom-6 left-1/2 z-50 flex -translate-x-1/2 items-center gap-4 rounded-2xl border border-blue-500/30 bg-slate-900/90 px-5 py-3.5 text-xs font-medium text-white shadow-2xl backdrop-blur-lg animate-in fade-in slide-in-from-bottom-5"
+          className="fixed bottom-6 left-1/2 z-50 flex -translate-x-1/2 items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 text-xs font-medium text-slate-800 shadow-xl animate-in fade-in slide-in-from-bottom-5"
         >
           <span>{message}</span>
           <button
-            className="rounded-lg bg-blue-600 px-2.5 py-1 text-[11px] font-bold tracking-wide uppercase hover:bg-blue-500 transition-colors"
+            className="rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-700 hover:bg-slate-200 transition-colors"
             onClick={clear}
           >
             Tutup
@@ -91,8 +84,8 @@ export function AppShell({ children }: { children: ReactNode }) {
         </div>
       )}
 
-      {/* Main Content Viewport */}
-      <main id="konten" className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:py-10">
+      {/* Main Content Area */}
+      <main id="konten" className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:py-10">
         {children}
       </main>
     </div>

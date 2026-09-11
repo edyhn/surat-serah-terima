@@ -10,7 +10,7 @@ export function Input({ label, error, className, id, name, disabled, ...props }:
   const inputId = id || name;
   return (
     <div className="space-y-1.5">
-      <label htmlFor={inputId} className="block text-xs font-semibold text-slate-300">
+      <label htmlFor={inputId} className="block text-xs font-semibold text-slate-700">
         {label}
       </label>
       <input
@@ -18,14 +18,14 @@ export function Input({ label, error, className, id, name, disabled, ...props }:
         name={name}
         disabled={disabled}
         className={cn(
-          "w-full rounded-xl border border-slate-800 bg-slate-950 px-3.5 py-2.5 text-xs text-slate-100 outline-none transition-all placeholder:text-slate-600 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 disabled:cursor-not-allowed disabled:bg-slate-900 disabled:text-slate-600",
-          error && "border-red-500 focus:border-red-500 focus:ring-red-500",
+          "w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-xs text-slate-900 outline-none transition-all placeholder:text-slate-400 hover:border-slate-300 focus:border-blue-600 focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400",
+          error && "border-red-400 focus:border-red-500 focus:ring-red-100",
           className
         )}
         {...props}
       />
       {error && (
-        <span role="alert" className="block text-[11px] font-medium text-red-400">
+        <span role="alert" className="block text-[11px] font-medium text-red-600">
           {error}
         </span>
       )}

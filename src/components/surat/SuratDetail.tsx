@@ -156,17 +156,17 @@ export function SuratDetail({ initial }: { initial: Surat }) {
       <div className="flex flex-wrap items-center justify-between gap-4">
         <Link
           href="/surat"
-          className="inline-flex items-center gap-2 text-xs font-semibold text-slate-400 hover:text-white transition-colors"
+          className="inline-flex items-center gap-2 text-xs font-semibold text-slate-500 hover:text-slate-900 transition-colors"
         >
           <ArrowLeft className="size-4" />
-          Kembali ke Studio Surat
+          Kembali ke Daftar Surat
         </Link>
         <div className="flex items-center gap-2">
           <span
             className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-bold uppercase tracking-wider ${
               surat.kategori === "penyerahan"
-                ? "border border-blue-500/20 bg-blue-500/10 text-blue-400"
-                : "border border-emerald-500/20 bg-emerald-500/10 text-emerald-400"
+                ? "border border-blue-200 bg-blue-50 text-blue-700"
+                : "border border-emerald-200 bg-emerald-50 text-emerald-700"
             }`}
           >
             {surat.kategori}
@@ -176,15 +176,15 @@ export function SuratDetail({ initial }: { initial: Surat }) {
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[1fr_380px]">
-        {/* Document Slate Card */}
-        <article className="rounded-3xl border border-slate-800 bg-slate-900/60 p-6 sm:p-8 backdrop-blur-xl shadow-2xl space-y-8">
+        {/* Document Clean Light Card */}
+        <article className="rounded-2xl border border-slate-200 bg-white p-6 sm:p-8 shadow-sm space-y-8">
           {/* Header Document */}
-          <div className="flex flex-wrap items-start justify-between gap-4 border-b border-slate-800 pb-6">
+          <div className="flex flex-wrap items-start justify-between gap-4 border-b border-slate-100 pb-6">
             <div>
-              <p className="text-xs font-bold uppercase tracking-widest text-blue-400">Berita Acara Resmi</p>
-              <h1 className="mt-1 text-2xl font-black tracking-tight text-white sm:text-3xl">{surat.nomor}</h1>
-              <div className="mt-2 flex items-center gap-2 text-xs text-slate-400">
-                <Calendar className="size-3.5 text-slate-500" />
+              <p className="text-xs font-bold uppercase tracking-widest text-blue-600">Berita Acara Resmi</p>
+              <h1 className="mt-1 text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">{surat.nomor}</h1>
+              <div className="mt-2 flex items-center gap-2 text-xs text-slate-500">
+                <Calendar className="size-3.5 text-slate-400" />
                 <span>Tanggal Terbit: {surat.tanggal}</span>
               </div>
             </div>
@@ -194,14 +194,14 @@ export function SuratDetail({ initial }: { initial: Surat }) {
                 href={`/api/surat/${encoded}/pdf`}
                 target="_blank"
                 rel="noreferrer"
-                className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-blue-600 px-4 text-xs font-semibold text-white shadow-lg shadow-blue-500/20 transition-all hover:bg-blue-500 focus-visible:outline-2 focus-visible:outline-blue-500"
+                className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-blue-600 px-4 text-xs font-semibold text-white shadow-sm transition-all hover:bg-blue-500 focus-visible:outline-2 focus-visible:outline-blue-600"
               >
                 <FileDown className="size-4" />
                 Unduh PDF
               </a>
               <Link
                 href={`/surat?edit=${encoded}`}
-                className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-slate-800 bg-slate-950 px-4 text-xs font-semibold text-slate-300 transition-colors hover:bg-slate-800 hover:text-white"
+                className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-xs font-semibold text-slate-700 transition-colors hover:bg-slate-50 hover:text-slate-900"
               >
                 <Edit3 className="size-4" />
                 Edit
@@ -211,73 +211,73 @@ export function SuratDetail({ initial }: { initial: Surat }) {
 
           {/* Partisipan Dokumen */}
           <div className="grid gap-4 sm:grid-cols-2">
-            <div className="rounded-2xl border border-slate-800/80 bg-slate-950/60 p-5">
-              <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-blue-400">
+            <div className="rounded-xl border border-slate-100 bg-slate-50/70 p-5">
+              <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-blue-700">
                 <User className="size-4" /> Pihak Pertama (Menyerahkan)
               </div>
-              <div className="mt-3 text-base font-bold text-white">{surat.nama}</div>
-              <div className="text-xs text-slate-400 mt-0.5">Departemen: {surat.departemen}</div>
+              <div className="mt-3 text-base font-bold text-slate-900">{surat.nama}</div>
+              <div className="text-xs text-slate-500 mt-0.5">Departemen: {surat.departemen}</div>
             </div>
 
-            <div className="rounded-2xl border border-slate-800/80 bg-slate-950/60 p-5">
-              <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-emerald-400">
+            <div className="rounded-xl border border-slate-100 bg-slate-50/70 p-5">
+              <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-emerald-700">
                 <Users className="size-4" /> Pihak Kedua (Menerima)
               </div>
-              <div className="mt-3 text-base font-bold text-white">{surat.penerima}</div>
-              <div className="text-xs text-slate-400 mt-0.5">Departemen: {surat.departemenPenerima}</div>
+              <div className="mt-3 text-base font-bold text-slate-900">{surat.penerima}</div>
+              <div className="text-xs text-slate-500 mt-0.5">Departemen: {surat.departemenPenerima}</div>
             </div>
           </div>
 
           {/* Keterangan */}
-          <div className="rounded-2xl border border-slate-800/80 bg-slate-950/40 p-5">
-            <div className="text-xs font-bold uppercase tracking-wider text-slate-400">Keterangan / Keperluan</div>
-            <p className="mt-2 text-xs leading-relaxed text-slate-300 whitespace-pre-wrap">{surat.keterangan}</p>
+          <div className="rounded-xl border border-slate-100 bg-slate-50/50 p-5">
+            <div className="text-xs font-bold uppercase tracking-wider text-slate-600">Keterangan / Keperluan</div>
+            <p className="mt-2 text-xs leading-relaxed text-slate-700 whitespace-pre-wrap">{surat.keterangan}</p>
           </div>
 
           {/* Inventaris Aset Terkait */}
           <div>
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div className="flex items-center gap-2">
-                <Package className="size-4 text-purple-400" />
-                <h2 className="text-sm font-bold text-white">Inventaris Aset Dalam Berita Acara</h2>
+                <Package className="size-4 text-purple-600" />
+                <h2 className="text-sm font-bold text-slate-900">Inventaris Aset Dalam Berita Acara</h2>
               </div>
               <span className="text-xs text-slate-500">{assets.length} item terdata</span>
             </div>
 
             {assets.length ? (
-              <ul className="mt-4 divide-y divide-slate-800/60 rounded-2xl border border-slate-800/80 bg-slate-950/40">
+              <ul className="mt-4 divide-y divide-slate-100 rounded-xl border border-slate-200 bg-white">
                 {assets.map((asset) => (
                   <li key={asset.kode} className="flex flex-wrap items-center justify-between gap-3 p-4">
                     <div>
-                      <strong className="block text-xs font-bold text-slate-200">{asset.nama}</strong>
+                      <strong className="block text-xs font-bold text-slate-900">{asset.nama}</strong>
                       <span className="text-[11px] text-slate-500">
-                        {asset.kode} · Kondisi: <span className="capitalize text-slate-400">{asset.kondisi}</span>
+                        {asset.kode} · Kondisi: <span className="capitalize text-slate-700">{asset.kondisi}</span>
                       </span>
                     </div>
-                    <span className="font-mono text-xs font-bold text-purple-400">{rupiah(asset.nilai)}</span>
+                    <span className="font-mono text-xs font-bold text-purple-700">{rupiah(asset.nilai)}</span>
                   </li>
                 ))}
               </ul>
             ) : (
-              <p className="mt-4 rounded-xl border border-slate-800/80 bg-slate-950/30 p-4 text-center text-xs text-slate-500">
+              <p className="mt-4 rounded-xl border border-slate-100 bg-slate-50 p-4 text-center text-xs text-slate-500">
                 Tidak ada aset yang ditautkan pada dokumen ini.
               </p>
             )}
           </div>
 
           {/* Security & Signed Token Explorer */}
-          <div className="border-t border-slate-800 pt-6">
+          <div className="border-t border-slate-100 pt-6">
             <div className="flex items-center gap-2">
-              <KeyRound className="size-4 text-blue-400" />
-              <h2 className="text-sm font-bold text-white">Signed Token Akses Eksternal</h2>
+              <KeyRound className="size-4 text-blue-600" />
+              <h2 className="text-sm font-bold text-slate-900">Signed Token Akses Eksternal</h2>
             </div>
-            <p className="mt-1 text-xs text-slate-400">
+            <p className="mt-1 text-xs text-slate-500">
               Token sekali pakai dan sesi terlindungi agar pihak eksternal dapat bertandatangan tanpa hak akses ke sistem admin.
             </p>
 
             {lastGeneratedUrl && (
-              <div className="mt-4 rounded-2xl border border-blue-500/30 bg-blue-500/10 p-4 text-xs">
-                <div className="flex items-center gap-2 font-bold text-blue-300">
+              <div className="mt-4 rounded-xl border border-blue-200 bg-blue-50/60 p-4 text-xs">
+                <div className="flex items-center gap-2 font-bold text-blue-800">
                   <CheckCircle2 className="size-4" /> Link Baru Siap Dikirim:
                 </div>
                 <div className="mt-2 flex items-center gap-2">
@@ -285,7 +285,7 @@ export function SuratDetail({ initial }: { initial: Surat }) {
                     type="text"
                     readOnly
                     value={lastGeneratedUrl}
-                    className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-xs text-slate-200 outline-none"
+                    className="w-full rounded-lg border border-blue-200 bg-white px-3 py-2 text-xs text-slate-800 outline-none select-all"
                   />
                   <Button className="px-3" onClick={() => copyToClipboard(lastGeneratedUrl)}>
                     <Copy className="size-3.5" />
@@ -299,23 +299,23 @@ export function SuratDetail({ initial }: { initial: Surat }) {
               {tokenLoading ? (
                 <p className="py-4 text-center text-xs text-slate-500">Memuat status token…</p>
               ) : tokens.length === 0 ? (
-                <div className="rounded-2xl border border-dashed border-slate-800 p-6 text-center text-xs text-slate-500">
+                <div className="rounded-xl border border-dashed border-slate-200 p-6 text-center text-xs text-slate-500">
                   Belum ada link token eksternal untuk surat ini. Anda dapat menerbitkannya pada panel sebelah kanan.
                 </div>
               ) : (
-                <div className="divide-y divide-slate-800/60 rounded-2xl border border-slate-800/80 bg-slate-950/40">
+                <div className="divide-y divide-slate-100 rounded-xl border border-slate-200 bg-white">
                   {tokens.map((t) => (
                     <div key={t.id} className="flex flex-wrap items-center justify-between gap-3 p-3.5 text-xs">
                       <div>
                         <div className="flex items-center gap-2">
-                          <span className="font-bold capitalize text-white">{t.pihak}</span>
+                          <span className="font-bold capitalize text-slate-900">{t.pihak}</span>
                           <span
                             className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${
                               t.state === "active"
-                                ? "border border-emerald-500/20 bg-emerald-500/10 text-emerald-400"
+                                ? "border border-emerald-200 bg-emerald-50 text-emerald-700"
                                 : t.state === "exchanged" || t.state === "completed"
-                                ? "border border-blue-500/20 bg-blue-500/10 text-blue-400"
-                                : "border border-slate-700 bg-slate-800 text-slate-400"
+                                ? "border border-blue-200 bg-blue-50 text-blue-700"
+                                : "border border-slate-200 bg-slate-100 text-slate-600"
                             }`}
                           >
                             {t.state}
@@ -334,7 +334,7 @@ export function SuratDetail({ initial }: { initial: Surat }) {
                               type="button"
                               onClick={() => handleRotateToken(t.id)}
                               title="Rotasi ke versi dokumen saat ini"
-                              className="rounded-lg border border-slate-800 bg-slate-900 p-2 text-slate-400 hover:border-slate-700 hover:text-blue-400 transition-colors"
+                              className="rounded-lg border border-slate-200 bg-white p-2 text-slate-500 hover:border-slate-300 hover:text-blue-600 transition-colors"
                             >
                               <RefreshCw className="size-3.5" />
                             </button>
@@ -342,7 +342,7 @@ export function SuratDetail({ initial }: { initial: Surat }) {
                               type="button"
                               onClick={() => handleRevokeToken(t.id)}
                               title="Cabut izin link"
-                              className="rounded-lg border border-slate-800 bg-slate-900 p-2 text-slate-400 hover:border-red-500/30 hover:bg-red-500/10 hover:text-red-400 transition-colors"
+                              className="rounded-lg border border-slate-200 bg-white p-2 text-slate-500 hover:border-red-200 hover:bg-red-50 hover:text-red-600 transition-colors"
                             >
                               <Trash2 className="size-3.5" />
                             </button>
@@ -360,20 +360,20 @@ export function SuratDetail({ initial }: { initial: Surat }) {
         {/* Action & Signature Sidebar */}
         <aside className="space-y-6">
           {/* Direct Signature Panel */}
-          <section className="rounded-3xl border border-slate-800 bg-slate-900/60 p-6 backdrop-blur-xl shadow-2xl">
+          <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
             <div className="flex items-center gap-2">
-              <QrCode className="size-5 text-blue-400" />
-              <h2 className="text-sm font-bold text-white">Tanda Tangan Internal</h2>
+              <QrCode className="size-5 text-blue-600" />
+              <h2 className="text-sm font-bold text-slate-900">Tanda Tangan Langsung</h2>
             </div>
-            <p className="mt-1 text-xs text-slate-400">Tandatangani langsung pada layar ini</p>
+            <p className="mt-1 text-xs text-slate-500">Tandatangani langsung pada layar ini</p>
 
             <div className="mt-4 space-y-1.5">
-              <label className="text-xs font-semibold text-slate-300">Pihak Penandatangan</label>
+              <label className="text-xs font-semibold text-slate-700">Pihak Penandatangan</label>
               <select
                 value={party}
                 onChange={(e) => setParty(e.target.value as "menyerahkan" | "menerima" | "hrd")}
                 disabled={saving}
-                className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3.5 py-2.5 text-xs text-slate-200 outline-none focus:border-blue-500"
+                className="w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-xs text-slate-900 outline-none hover:border-slate-300 focus:border-blue-600 focus:ring-2 focus:ring-blue-100"
               >
                 <option value="menyerahkan">Yang Menyerahkan ({surat.nama})</option>
                 <option value="menerima">Yang Menerima ({surat.penerima})</option>
@@ -386,7 +386,7 @@ export function SuratDetail({ initial }: { initial: Surat }) {
             </div>
 
             {error && (
-              <p role="alert" className="mt-3 rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-xs text-red-400">
+              <p role="alert" className="mt-3 rounded-xl border border-red-200 bg-red-50 p-3 text-xs text-red-600">
                 {error}
               </p>
             )}
@@ -402,17 +402,17 @@ export function SuratDetail({ initial }: { initial: Surat }) {
           </section>
 
           {/* External Access Token Card */}
-          <section className="rounded-3xl border border-slate-800 bg-slate-900/60 p-6 backdrop-blur-xl shadow-2xl">
+          <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
             <div className="flex items-center gap-2">
-              <KeyRound className="size-5 text-emerald-400" />
-              <h2 className="text-sm font-bold text-white">Akses Pihak Luar</h2>
+              <KeyRound className="size-5 text-emerald-600" />
+              <h2 className="text-sm font-bold text-slate-900">Akses Pihak Luar</h2>
             </div>
-            <p className="mt-1 text-xs text-slate-400">
+            <p className="mt-1 text-xs text-slate-500">
               Kirimkan link sekali pakai atau QR code agar pihak penandatangan dapat membuka dokumen di perangkat mereka sendiri secara terproteksi.
             </p>
 
             <Button
-              className="mt-5 w-full rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 text-xs font-semibold shadow-lg shadow-emerald-500/20 hover:from-emerald-500 hover:to-teal-500"
+              className="mt-5 w-full rounded-xl bg-emerald-600 text-xs font-semibold shadow-sm hover:bg-emerald-500"
               onClick={handleGenerateToken}
               disabled={generatingToken}
             >
@@ -424,7 +424,7 @@ export function SuratDetail({ initial }: { initial: Surat }) {
               <a
                 href={`/api/surat/${encoded}/qr?pihak=${party}`}
                 download
-                className="inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-xl border border-slate-800 bg-slate-950 px-4 text-xs font-semibold text-slate-300 transition-colors hover:bg-slate-800 hover:text-white"
+                className="inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-xs font-semibold text-slate-700 transition-colors hover:bg-slate-50 hover:text-slate-900"
               >
                 <Download className="size-4" />
                 Unduh Gambar QR ({party})
