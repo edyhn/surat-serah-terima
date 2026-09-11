@@ -9,6 +9,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { apiError } from "@/lib/api";
 import { revokeToken, issueSigningToken, getCurrentDocumentVersion } from "@/lib/token-data";
 import { generateCorrelationId } from "@/lib/token-utils";
+import { createServerClient } from "@supabase/ssr";
 import { createAdminClient } from "@/lib/supabase-admin";
 
 type Context = { params: Promise<{ id: string }> };
@@ -17,6 +18,11 @@ type Context = { params: Promise<{ id: string }> };
 export async function DELETE(request: NextRequest, context: Context) {
   const correlationId = generateCorrelationId();
   try {
+    const userId = await getAuthenticatedUserId(request);
+    if (!userId) {
+      return NextResponse.json({ error: "Autentikasi diperlukan." }, { status: 401 });
+    }
+
     const { id } = await context.params;
     await revokeToken(id, correlationId);
 
@@ -30,6 +36,11 @@ export async function DELETE(request: NextRequest, context: Context) {
 export async function POST(request: NextRequest, context: Context) {
   const correlationId = generateCorrelationId();
   try {
+    const userId = await getAuthenticatedUserId(request);
+    if (!userId) {
+      return NextResponse.json({ error: "Autentikasi diperlukan." }, { status: 401 });
+    }
+
     const { id } = await context.params;
 
     // Ambil data token lama
@@ -56,7 +67,7 @@ export async function POST(request: NextRequest, context: Context) {
       nomor: t.nomor_surat,
       pihak: t.pihak as import("@/types/token").PihakTtd,
       scopes: t.scopes as import("@/types/token").TokenScope[],
-      createdBy: "system-operator",
+      createdBy: userId,
       documentVersion: version,
       documentDigest: digest,
     });
@@ -72,5 +83,20 @@ export async function POST(request: NextRequest, context: Context) {
     });
   } catch (error) {
     return apiError(error, "Gagal merotasi token.");
+  }
+}
+
+async function getAuthenticatedUserId(request: NextRequest): Promise<string | null> {
+  try {
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    if (!url || !anonKey) return null;
+    const supabase = createServerClient(url, anonKey, {
+      cookies: { getAll: () => request.cookies.getAll(), setAll: () => {} },
+    });
+    const { data } = await supabase.auth.getClaims();
+    return data?.claims?.sub ?? null;
+  } catch {
+    return null;
   }
 }

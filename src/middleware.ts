@@ -1,3 +1,4 @@
+import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 /**
@@ -13,15 +14,47 @@ const SIGNING_PUBLIC_ROUTES = [
 
 export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
-  const response = NextResponse.next({ request });
 
-  // Security headers standar
-  response.headers.set("X-Content-Type-Options", "nosniff");
-  response.headers.set("X-Frame-Options", "DENY");
-  response.headers.set("Referrer-Policy", "no-referrer");
+  if (SIGNING_PUBLIC_ROUTES.some((pattern) => pattern.test(pathname))) {
+    const response = NextResponse.next({ request });
+    response.headers.set("X-Content-Type-Options", "nosniff");
+    response.headers.set("X-Frame-Options", "DENY");
+    response.headers.set("Referrer-Policy", "no-referrer");
+    return response;
+  }
 
-  // Alihkan /login langsung ke /surat karena autentikasi dinonaktifkan untuk efisiensi
-  if (pathname === "/login") {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!url || !anonKey) {
+    return pathname.startsWith("/api/")
+      ? NextResponse.json({ error: "Layanan belum dikonfigurasi." }, { status: 503 })
+      : NextResponse.next();
+  }
+
+  let response = NextResponse.next({ request });
+  const supabase = createServerClient(url, anonKey, {
+    cookies: {
+      getAll: () => request.cookies.getAll(),
+      setAll: (items) => {
+        items.forEach(({ name, value }) => request.cookies.set(name, value));
+        response = NextResponse.next({ request });
+        items.forEach(({ name, value, options }) => response.cookies.set(name, value, options));
+      },
+    },
+  });
+
+  const { data } = await supabase.auth.getClaims();
+
+  if (!data?.claims && pathname.startsWith("/api/")) {
+    return NextResponse.json({ error: "Autentikasi diperlukan." }, { status: 401 });
+  }
+  if (!data?.claims && pathname !== "/login") {
+    const loginUrl = request.nextUrl.clone();
+    loginUrl.pathname = "/login";
+    loginUrl.searchParams.set("next", pathname);
+    return NextResponse.redirect(loginUrl);
+  }
+  if (data?.claims && pathname === "/login") {
     return NextResponse.redirect(new URL("/surat", request.url));
   }
 

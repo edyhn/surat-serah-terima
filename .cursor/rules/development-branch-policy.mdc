@@ -1,0 +1,14 @@
+---
+description: Enforce the existing development branch for all repository work
+alwaysApply: true
+---
+
+# Development Branch Policy
+
+- Perform all implementation, testing, commits, and pushes on the existing `development` branch.
+- Do not create feature, issue, agent, temporary, or worktree-named branches.
+- Before changing files, verify the current branch with `git branch --show-current`.
+- If the current branch is not `development`, stop implementation and switch to `development` without discarding user changes.
+- Never push directly to `main` and never merge or deploy without Edy's explicit approval.
+- If changes already exist on another branch, preserve them and move/reapply the relevant commits onto `development`; do not silently overwrite or drop work.
+- Report the final branch name and commit SHA in the issue handoff.

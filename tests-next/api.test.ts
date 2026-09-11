@@ -8,6 +8,8 @@ import { asetSchema, suratSchema, ttdSchema } from "@/lib/schemas";
 import type { Surat } from "@/types";
 import { NextRequest } from "next/server";
 import { middleware } from "@/middleware";
+import { GET as listSigningTokens, POST as issueSigningToken } from "@/app/api/signing/token/route";
+import { DELETE as revokeSigningToken, POST as rotateSigningToken } from "@/app/api/signing/token/[id]/route";
 
 const surat: Surat = { nomor: "001/SRT-ST/2026", tanggal: "10 September 2026", tanggalSingkat: "10/09/2026", kategori: "penyerahan", nama: "Edy", departemen: "IT", penerima: "Mika", departemenPenerima: "HRD", keterangan: "Laptop untuk operasional", namaHrd: "HRD", aset: [{ kode: "INV/IT-001", nama: "Laptop", kategori: "IT", nilai: 10_000_000, kondisi: "baik", status: "dipakai" }] };
 
@@ -49,5 +51,17 @@ describe("API contracts tanpa Supabase", () => {
     const response = await middleware(new NextRequest("http://localhost/api/aset"));
     expect(response.status).toBe(503);
     expect(await response.json()).toEqual({ error: "Layanan belum dikonfigurasi." });
+  });
+
+  it("menolak akses anonim langsung ke seluruh API pengelolaan token signing", async () => {
+    const context = { params: Promise.resolve({ id: "token-id" }) };
+    const responses = await Promise.all([
+      listSigningTokens(new NextRequest("http://localhost/api/signing/token?nomor=001")),
+      issueSigningToken(new NextRequest("http://localhost/api/signing/token", { method: "POST" })),
+      revokeSigningToken(new NextRequest("http://localhost/api/signing/token/token-id", { method: "DELETE" }), context),
+      rotateSigningToken(new NextRequest("http://localhost/api/signing/token/token-id", { method: "POST" }), context),
+    ]);
+
+    expect(responses.map((response) => response.status)).toEqual([401, 401, 401, 401]);
   });
 });

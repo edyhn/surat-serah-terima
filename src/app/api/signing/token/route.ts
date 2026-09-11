@@ -40,6 +40,11 @@ const issueSchema = z.object({
 /** GET /api/signing/token?nomor=... */
 export async function GET(request: NextRequest) {
   try {
+    const userId = await getAuthenticatedUserId(request);
+    if (!userId) {
+      return NextResponse.json({ error: "Autentikasi diperlukan." }, { status: 401 });
+    }
+
     const nomor = request.nextUrl.searchParams.get("nomor");
     if (!nomor) return NextResponse.json({ error: "Parameter nomor diperlukan." }, { status: 400 });
 
@@ -53,8 +58,10 @@ export async function GET(request: NextRequest) {
 /** POST /api/signing/token → issue token */
 export async function POST(request: NextRequest) {
   try {
-    // Dapatkan identitas pengguna (jika ada sesi login), atau default ke operator internal
-    const userId = (await getAuthenticatedUserId(request)) ?? "system-operator";
+    const userId = await getAuthenticatedUserId(request);
+    if (!userId) {
+      return NextResponse.json({ error: "Autentikasi diperlukan." }, { status: 401 });
+    }
 
     const body = issueSchema.parse(await request.json());
 
