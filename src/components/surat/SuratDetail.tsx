@@ -164,7 +164,9 @@ export function SuratDetail({ initial }: { initial: Surat }) {
         <div className="flex items-center gap-2">
           <span
             className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-bold uppercase tracking-wider ${
-              surat.kategori === "penyerahan"
+              surat.kategori === "pengadaan"
+                ? "border border-amber-200 bg-amber-50 text-amber-800"
+                : surat.kategori === "penyerahan"
                 ? "border border-blue-200 bg-blue-50 text-blue-700"
                 : "border border-emerald-200 bg-emerald-50 text-emerald-700"
             }`}

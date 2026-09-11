@@ -25,13 +25,20 @@ async function persistDocument(surat: Surat, input: SuratInput) {
   return { ...surat, pdf: pdf.namaFile, ttd: ttdDataUrls(stored) };
 }
 
+function resolveAssetStatus(input: SuratInput): Aset["status"] {
+  if (input.statusAsetTujuan) return input.statusAsetTujuan;
+  if (input.kategori === "pengadaan") return "proses_qc";
+  if (input.kategori === "penyerahan") return "dipakai";
+  return "proses_qc";
+}
+
 export async function createSurat(input: SuratInput) {
   await assertAssets(input.aset);
   const numbered = nextNomor((await listSurat()).map((item) => item.nomor));
   const surat: Surat = { ...input, ...numbered };
   await insertSurat(surat);
   await setLinks(surat.nomor, input.aset);
-  await setAssetStatus(input.aset, input.kategori === "penyerahan" ? "dipakai" : "tersedia");
+  await setAssetStatus(input.aset, resolveAssetStatus(input));
   return persistDocument(surat, input);
 }
 
@@ -42,7 +49,7 @@ export async function editSurat(nomor: string, input: SuratInput) {
   const surat: Surat = { ...current, ...input };
   await updateSurat(nomor, surat);
   await setLinks(nomor, input.aset);
-  await setAssetStatus(input.aset, input.kategori === "penyerahan" ? "dipakai" : "tersedia");
+  await setAssetStatus(input.aset, resolveAssetStatus(input));
   return persistDocument(surat, input);
 }
 

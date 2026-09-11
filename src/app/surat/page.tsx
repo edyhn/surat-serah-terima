@@ -32,8 +32,9 @@ export default function SuratPage() {
   const [data, setData] = useState<Bootstrap | null>(null);
   const [error, setError] = useState("");
   const [query, setQuery] = useState("");
-  const [categoryFilter, setCategoryFilter] = useState<"all" | "penyerahan" | "pengembalian">("all");
+  const [categoryFilter, setCategoryFilter] = useState<"all" | "pengadaan" | "penyerahan" | "pengembalian">("all");
   const [formOpen, setFormOpen] = useState(false);
+  const [activeFlow, setActiveFlow] = useState<"pengadaan" | "penyerahan" | "pengembalian">("penyerahan");
   const [editing, setEditing] = useState<Surat>();
   const [deleting, setDeleting] = useState("");
 
@@ -81,10 +82,13 @@ export default function SuratPage() {
     const riwayat = data?.riwayat ?? [];
     const aset = data?.aset ?? [];
     const total = riwayat.length;
+    const pengadaan = riwayat.filter((s) => s.kategori === "pengadaan").length;
     const penyerahan = riwayat.filter((s) => s.kategori === "penyerahan").length;
     const pengembalian = riwayat.filter((s) => s.kategori === "pengembalian").length;
+    const prosesQc = aset.filter((a) => a.status === "proses_qc").length;
+    const siapPakai = aset.filter((a) => a.status === "siap_pakai" || a.status === "tersedia").length;
     const asetDipakai = aset.filter((a) => a.status === "dipakai").length;
-    return { total, penyerahan, pengembalian, asetDipakai };
+    return { total, pengadaan, penyerahan, pengembalian, prosesQc, siapPakai, asetDipakai };
   }, [data]);
 
   const filtered = (data?.riwayat ?? []).filter((item) => {
@@ -104,26 +108,40 @@ export default function SuratPage() {
             Surat Serah Terima
           </h1>
           <p className="mt-1 text-sm text-slate-500">
-            Kelola arsip berita acara serah terima aset dan tanda tangan digital.
+            Alur pengadaan dari Mas Royan, pengecekan QC oleh IT, hingga serah terima karyawan.
           </p>
         </div>
 
-        <div className="flex items-center gap-2.5">
+        <div className="flex flex-wrap items-center gap-2">
           <a
             href="/api/riwayat/download"
-            className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3.5 text-xs font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 hover:text-slate-900"
+            className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 hover:text-slate-900"
           >
             <Download className="size-3.5 text-slate-500" />
             Ekspor Excel
           </a>
+          <button
+            type="button"
+            onClick={() => {
+              setEditing(undefined);
+              setActiveFlow("pengadaan");
+              setFormOpen(true);
+            }}
+            className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-amber-200 bg-amber-50 px-3 text-xs font-bold text-amber-900 shadow-sm transition hover:bg-amber-100"
+          >
+            <Plus className="size-3.5 text-amber-700" />
+            Terima dari Mas Royan
+          </button>
           <Button
             onClick={() => {
               setEditing(undefined);
+              setActiveFlow("penyerahan");
               setFormOpen(true);
             }}
+            className="min-h-9 px-3 text-xs"
           >
-            <Plus className="size-4" />
-            Buat Surat
+            <Plus className="size-3.5" />
+            Serah ke Karyawan
           </Button>
         </div>
       </div>
@@ -131,23 +149,27 @@ export default function SuratPage() {
       {/* Ringkasan Metrik Minimalis */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4">
         <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-          <div className="text-xs font-medium text-slate-500">Total Surat</div>
+          <div className="text-xs font-medium text-slate-500">Total Berita Acara</div>
           <div className="mt-1 text-2xl font-bold text-slate-900">{metrics.total}</div>
+          <p className="text-[11px] text-slate-400 mt-0.5">Semua dokumen tercatat</p>
         </div>
 
         <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-          <div className="text-xs font-medium text-slate-500">Penyerahan</div>
-          <div className="mt-1 text-2xl font-bold text-blue-600">{metrics.penyerahan}</div>
+          <div className="text-xs font-medium text-slate-500">Dalam Proses QC</div>
+          <div className="mt-1 text-2xl font-bold text-amber-600">{metrics.prosesQc}</div>
+          <p className="text-[11px] text-amber-600/80 mt-0.5">Perlu dicek oleh Edy IT</p>
         </div>
 
         <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-          <div className="text-xs font-medium text-slate-500">Pengembalian</div>
-          <div className="mt-1 text-2xl font-bold text-emerald-600">{metrics.pengembalian}</div>
+          <div className="text-xs font-medium text-slate-500">Unit Siap Pakai</div>
+          <div className="mt-1 text-2xl font-bold text-blue-600">{metrics.siapPakai}</div>
+          <p className="text-[11px] text-blue-600/80 mt-0.5">Lolos QC, siap diserahkan</p>
         </div>
 
         <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-          <div className="text-xs font-medium text-slate-500">Aset Dipakai</div>
-          <div className="mt-1 text-2xl font-bold text-slate-800">{metrics.asetDipakai}</div>
+          <div className="text-xs font-medium text-slate-500">Aset Sedang Dipakai</div>
+          <div className="mt-1 text-2xl font-bold text-emerald-600">{metrics.asetDipakai}</div>
+          <p className="text-[11px] text-emerald-600/80 mt-0.5">Aktif di tangan karyawan</p>
         </div>
       </div>
 
@@ -178,6 +200,7 @@ export default function SuratPage() {
           <SuratForm
             assets={data?.aset ?? []}
             initial={editing}
+            defaultFlow={activeFlow}
             onCancel={() => setFormOpen(false)}
             onSaved={(surat) => {
               setData((current) =>
@@ -215,7 +238,7 @@ export default function SuratPage() {
             <button
               type="button"
               onClick={() => setCategoryFilter("all")}
-              className={`rounded-md px-3 py-1 text-xs font-semibold transition ${
+              className={`rounded-md px-2.5 py-1 text-xs font-semibold transition ${
                 categoryFilter === "all"
                   ? "bg-slate-900 text-white"
                   : "text-slate-600 hover:text-slate-900"
@@ -225,8 +248,19 @@ export default function SuratPage() {
             </button>
             <button
               type="button"
+              onClick={() => setCategoryFilter("pengadaan")}
+              className={`rounded-md px-2.5 py-1 text-xs font-semibold transition ${
+                categoryFilter === "pengadaan"
+                  ? "bg-slate-900 text-white"
+                  : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              Pengadaan
+            </button>
+            <button
+              type="button"
               onClick={() => setCategoryFilter("penyerahan")}
-              className={`rounded-md px-3 py-1 text-xs font-semibold transition ${
+              className={`rounded-md px-2.5 py-1 text-xs font-semibold transition ${
                 categoryFilter === "penyerahan"
                   ? "bg-slate-900 text-white"
                   : "text-slate-600 hover:text-slate-900"
@@ -237,7 +271,7 @@ export default function SuratPage() {
             <button
               type="button"
               onClick={() => setCategoryFilter("pengembalian")}
-              className={`rounded-md px-3 py-1 text-xs font-semibold transition ${
+              className={`rounded-md px-2.5 py-1 text-xs font-semibold transition ${
                 categoryFilter === "pengembalian"
                   ? "bg-slate-900 text-white"
                   : "text-slate-600 hover:text-slate-900"
@@ -283,9 +317,11 @@ export default function SuratPage() {
                     <td className="px-4 py-3.5">
                       <span
                         className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
-                          surat.kategori === "penyerahan"
-                            ? "bg-blue-50 text-blue-700"
-                            : "bg-emerald-50 text-emerald-700"
+                          surat.kategori === "pengadaan"
+                            ? "bg-amber-50 text-amber-700 border border-amber-200"
+                            : surat.kategori === "penyerahan"
+                            ? "bg-blue-50 text-blue-700 border border-blue-200"
+                            : "bg-emerald-50 text-emerald-700 border border-emerald-200"
                         }`}
                       >
                         {surat.kategori}

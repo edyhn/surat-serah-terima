@@ -4,6 +4,7 @@ import type { Aset, PihakTtd, Surat } from "@/types";
 const CITY = "Tangerang";
 const INK = "#111827";
 const statements = {
+  pengadaan: "Dengan ini menyatakan bahwa barang/aset hasil pengadaan telah diserahkan untuk proses pengecekan teknis (QC), instalasi, dan persiapan operasional IT.",
   penyerahan: "Dengan ini menyatakan bahwa barang/aset sebagaimana keterangan di atas TELAH DISERAHKAN oleh yang bersangkutan untuk diterima dan dikelola sesuai ketentuan yang berlaku.",
   pengembalian: "Dengan ini menyatakan bahwa barang/aset sebagaimana keterangan di atas TELAH DIKEMBALIKAN oleh yang bersangkutan dan telah diterima kembali dalam kondisi yang baik.",
 };
@@ -60,9 +61,9 @@ export function buatPdf(surat: Surat): Promise<{ namaFile: string; buffer: Buffe
       assets.forEach((asset, index) => doc.font("Helvetica").text(`${asset.kode} — ${asset.nama} — Rp ${asset.nilai.toLocaleString("id-ID")} — ${asset.kondisi}`, x + 10, y + 29 + index * 22, { width: width - 20 }));
       y += 39 + assets.length * 22;
     }
-    doc.font("Helvetica").text(statements[surat.kategori], x, y, { width, align: "justify" });
+    doc.font("Helvetica").text(statements[surat.kategori] ?? statements.penyerahan, x, y, { width, align: "justify" });
     y = doc.y + 14;
-    doc.rect(x, y, width, 48).stroke().font("Helvetica-Bold").text("Kategori", x + 10, y + 9).font("Helvetica").text(`${surat.kategori === "penyerahan" ? "☒" : "☐"} Penyerahan     ${surat.kategori === "pengembalian" ? "☒" : "☐"} Pengembalian`, x + 10, y + 27);
+    doc.rect(x, y, width, 48).stroke().font("Helvetica-Bold").text("Kategori", x + 10, y + 9).font("Helvetica").text(`${surat.kategori === "pengadaan" ? "☒" : "☐"} Pengadaan     ${surat.kategori === "penyerahan" ? "☒" : "☐"} Penyerahan     ${surat.kategori === "pengembalian" ? "☒" : "☐"} Pengembalian`, x + 10, y + 27);
     signature(doc, x, Math.min(y + 75, 670), width, surat);
     doc.end();
   });

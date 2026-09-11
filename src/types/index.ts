@@ -1,7 +1,7 @@
-export type KategoriSurat = "penyerahan" | "pengembalian";
+export type KategoriSurat = "pengadaan" | "penyerahan" | "pengembalian";
 export type PihakTtd = "menyerahkan" | "menerima" | "hrd";
 export type KondisiAset = "baru" | "sangat-baik" | "baik" | "cukup" | "rusak-ringan" | "rusak-berat";
-export type StatusAset = "tersedia" | "dipakai" | "perbaikan" | "rusak" | "hilang" | "dihapus";
+export type StatusAset = "proses_qc" | "siap_pakai" | "tersedia" | "dipakai" | "perbaikan" | "rusak" | "hilang" | "dihapus";
 
 export interface Aset {
   id?: number;
@@ -20,6 +20,7 @@ export interface SuratInput {
   departemenPenerima: string;
   keterangan: string;
   kategori: KategoriSurat;
+  statusAsetTujuan?: "proses_qc" | "siap_pakai" | "dipakai" | "perbaikan";
   namaHrd: string;
   aset: string[];
   ttd?: Partial<Record<PihakTtd, string>>;
