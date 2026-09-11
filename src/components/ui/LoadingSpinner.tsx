@@ -1,0 +1,1 @@
+export function LoadingSpinner({ label = "Memuat" }: { label?: string }) { return <div role="status" className="flex items-center justify-center gap-3 rounded-xl border border-slate-200 bg-white p-8 text-sm text-slate-600"><span className="size-5 animate-spin rounded-full border-2 border-blue-200 border-t-blue-700"/><span>{label}…</span></div>; }
