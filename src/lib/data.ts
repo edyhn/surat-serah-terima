@@ -55,17 +55,21 @@ export async function insertAset(aset: Aset) {
 }
 
 export async function updateAset(kode: string, aset: Aset) {
-  const { data, error } = await createAdminClient().from("aset").update(aset).eq("kode", kode).select().maybeSingle();
+  const { data, error } = await createAdminClient().rpc("mutate_asset_and_invalidate_documents", {
+    p_old_kode: kode, p_asset: aset, p_delete: false, p_correlation_id: crypto.randomUUID(),
+  });
   if (error) throw error;
-  return data as Aset | null;
+  const row = Array.isArray(data) ? data[0] : data;
+  return row?.asset ? row.asset as Aset : null;
 }
 
 export async function deleteAset(kode: string) {
-  const db = createAdminClient();
-  const { count, error } = await db.from("aset").delete({ count: "exact" }).eq("kode", kode);
+  const { data, error } = await createAdminClient().rpc("mutate_asset_and_invalidate_documents", {
+    p_old_kode: kode, p_asset: null, p_delete: true, p_correlation_id: crypto.randomUUID(),
+  });
   if (error) throw error;
-  if (count) { const result = await db.from("surat_aset").delete().eq("kode_aset", kode); if (result.error) throw result.error; }
-  return (count ?? 0) > 0;
+  const row = Array.isArray(data) ? data[0] : data;
+  return Boolean(row?.found);
 }
 
 export async function listLinks(): Promise<LinkRow[]> {

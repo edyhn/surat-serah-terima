@@ -113,6 +113,19 @@ Setiap perubahan dokumen (edit surat, tambah aset) akan:
 
 Sebelum commit TTD:
 - Digest dokumen saat ini dibandingkan dengan digest saat token diterbitkan
+
+### Perubahan master aset (ISSUE-35)
+
+Field aset yang masuk PDF dan digest adalah `kode`, `nama`, `nilai`, dan `kondisi`.
+`kategori` dan `status` hanya metadata workflow sehingga perubahannya tidak
+menginvalidasi dokumen. Update kode/nama/nilai/kondisi maupun delete dijalankan
+oleh satu RPC PostgreSQL: aset dan seluruh surat tertaut dikunci dalam urutan nomor,
+semua versi/digest diubah, capability lama dicabut, dan audit ditulis dalam transaksi
+yang sama. Satu aset yang tertaut ke beberapa surat menginvalidasi semuanya secara
+deterministik. Kegagalan RPC me-rollback seluruh perubahan dan request aman diulang.
+
+Atomicity ini hanya mencakup database. PDF selalu dirender dari snapshot database
+terbaru saat diminta; object storage lama bukan sumber kebenaran setelah perubahan aset.
 - Jika tidak cocok → submit ditolak dengan 409 Conflict
 
 ## Keamanan Token
