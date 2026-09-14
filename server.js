@@ -6,6 +6,8 @@ const { bikinExcel } = require('./lib/excel');
 const { buatPdf, dirPdf } = require('./lib/pdf');
 const storage = require('./lib/storage');
 const QRCode = require('qrcode');
+const { requireAuth, authenticate } = require('./lib/auth');
+const { isAllowedRole, canAccessObject, filterByScope } = require('./lib/aset-rbac');
 
 const app = express();
 
@@ -491,20 +493,28 @@ app.delete('/api/surat/:nomor', async (req, res) => {
 });
 
 // --- Aset ---
-app.get('/api/aset', async (_req, res) => {
+app.get('/api/aset', requireAuth(), async (req, res) => {
   try {
-    res.json(await storage.aset.daftarAset());
+    const daftar = await storage.aset.daftarAset();
+    const filtered = filterByScope(req.user, daftar);
+    res.json(filtered);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Gagal membaca data aset.' });
   }
 });
 
-app.post('/api/aset', async (req, res) => {
+app.post('/api/aset', requireAuth(), async (req, res) => {
   try {
-    const hasil = validasiAset(req.body || {});
+    if (!isAllowedRole(req.user.role, 'create')) return res.status(403).json({ error: 'Tidak berwenang membuat aset.' });
+    const body = req.body || {};
+    delete body.kode;
+    delete body.id;
+    delete body.created_at;
+    delete body.updated_at;
+    const hasil = validasiAset(body);
     if (hasil.error) return res.status(400).json({ error: hasil.error });
-    if (!hasil.data.kode) hasil.data.kode = await autoKodeAset(hasil.data.kategori);
+    hasil.data.kode = await autoKodeAset(hasil.data.kategori);
     const aset = await storage.aset.tambahAset(hasil.data);
     res.json(aset);
   } catch (err) {
@@ -516,21 +526,35 @@ app.post('/api/aset', async (req, res) => {
   }
 });
 
-app.put('/api/aset/:kode', async (req, res) => {
+app.put('/api/aset/:kode', requireAuth(), async (req, res) => {
   try {
-    const hasil = validasiAset(req.body || {});
+    if (!isAllowedRole(req.user.role, 'update')) return res.status(403).json({ error: 'Tidak berwenang mengubah aset.' });
+    const daftar = await storage.aset.daftarAset();
+    const aset = daftar.find((a) => String(a.kode) === String(req.params.kode));
+    if (!canAccessObject(req.user, aset)) return res.status(403).json({ error: 'Akses ditolak ke aset ini.' });
+    const body = req.body || {};
+    delete body.kode;
+    delete body.id;
+    delete body.created_at;
+    delete body.updated_at;
+    delete body.status;
+    const hasil = validasiAset(body);
     if (hasil.error) return res.status(400).json({ error: hasil.error });
-    const aset = await storage.aset.updateAset(req.params.kode, hasil.data);
-    if (!aset) return res.status(404).json({ error: 'Aset tidak ditemukan.' });
-    res.json(aset);
+    const updated = await storage.aset.updateAset(req.params.kode, hasil.data);
+    if (!updated) return res.status(404).json({ error: 'Aset tidak ditemukan.' });
+    res.json(updated);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Gagal mengubah aset.' });
   }
 });
 
-app.delete('/api/aset/:kode', async (req, res) => {
+app.delete('/api/aset/:kode', requireAuth(), async (req, res) => {
   try {
+    if (!isAllowedRole(req.user.role, 'delete')) return res.status(403).json({ error: 'Tidak berwenang menghapus aset.' });
+    const daftar = await storage.aset.daftarAset();
+    const aset = daftar.find((a) => String(a.kode) === String(req.params.kode));
+    if (!canAccessObject(req.user, aset)) return res.status(403).json({ error: 'Akses ditolak ke aset ini.' });
     const ok = await storage.aset.hapusAset(req.params.kode);
     if (!ok) return res.status(404).json({ error: 'Aset tidak ditemukan.' });
     res.json({ ok: true });
@@ -540,10 +564,13 @@ app.delete('/api/aset/:kode', async (req, res) => {
   }
 });
 
-app.get('/api/aset/:kode/riwayat', async (req, res) => {
+app.get('/api/aset/:kode/riwayat', requireAuth(), async (req, res) => {
   try {
-    const daftar = await storage.aset.riwayatAset(req.params.kode);
-    res.json(daftar);
+    const daftar = await storage.aset.daftarAset();
+    const aset = daftar.find((a) => String(a.kode) === String(req.params.kode));
+    if (!canAccessObject(req.user, aset)) return res.status(403).json({ error: 'Akses ditolak ke aset ini.' });
+    const hist = await storage.aset.riwayatAset(req.params.kode);
+    res.json(hist);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Gagal membaca riwayat aset.' });
