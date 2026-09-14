@@ -4,11 +4,14 @@ const { spawn } = require('node:child_process');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
+const { makeToken } = require('./auth-utils');
 
 const PORT = 3299;
 const BASE = `http://localhost:${PORT}`;
 const tmp = path.join(os.tmpdir(), 'ssterima-aset-test');
 const tahun = new Date().getFullYear();
+
+const AUTH = makeToken({ sub: 'test-user', role: 'admin' });
 
 function nyalakan() {
   return new Promise((resolve, reject) => {
@@ -26,10 +29,10 @@ function nyalakan() {
       },
       stdio: 'ignore',
     });
-    const awal = Date.now();
+     const awal = Date.now();
     const cek = setInterval(async () => {
       try {
-        const r = await fetch(`${BASE}/api/riwayat`);
+        const r = await fetch(`${BASE}/api/config`);
         if (r.ok) {
           clearInterval(cek);
           resolve(child);
@@ -47,10 +50,13 @@ function nyalakan() {
   });
 }
 
-async function json(method, url, body) {
+async function json(method, url, body, token = AUTH) {
+  const headers = {};
+  if (token) headers.Authorization = `Bearer ${token}`;
+  if (body) headers['Content-Type'] = 'application/json';
   const res = await fetch(BASE + url, {
     method,
-    headers: body ? { 'Content-Type': 'application/json' } : undefined,
+    headers,
     body: body ? JSON.stringify(body) : undefined,
   });
   return { status: res.status, data: await res.json().catch(() => ({})) };
