@@ -4,7 +4,7 @@ const { spawn } = require('node:child_process');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const { makeToken, expiredToken, malformedToken } = require('./auth-utils');
+const { makeToken, expiredToken, forgedToken, malformedToken } = require('./auth-utils');
 
 const PORT = 3399;
 const BASE = `http://localhost:${PORT}`;
@@ -23,6 +23,7 @@ function nyalakan() {
         NOMOR_FILE: path.join(tmp, 'nomor.json'),
         ASET_FILE: path.join(tmp, 'aset.json'),
         SURAT_ASET_FILE: path.join(tmp, 'surat_aset.json'),
+        SUPABASE_JWT_SECRET: 'test-secret-key',
       },
       stdio: 'ignore',
     });
@@ -67,10 +68,10 @@ test('auth: aset tanpa token → 401', async () => {
   }
 });
 
-test('auth: surat tanpa token → 401', async () => {
+test('auth: aset dengan token expired → 401', async () => {
   const child = await nyalakan();
   try {
-    const res = await json('GET', '/api/riwayat', null);
+    const res = await json('GET', '/api/aset', expiredToken({ role: 'admin' }));
     assert.equal(res.status, 401);
     assert.ok(res.data.error);
   } finally {
@@ -78,10 +79,10 @@ test('auth: surat tanpa token → 401', async () => {
   }
 });
 
-test('auth: aset dengan token expired → 401', async () => {
+test('auth: aset dengan token forged (signature salah) → 401', async () => {
   const child = await nyalakan();
   try {
-    const res = await json('GET', '/api/aset', expiredToken());
+    const res = await json('GET', '/api/aset', forgedToken({ role: 'admin' }));
     assert.equal(res.status, 401);
     assert.ok(res.data.error);
   } finally {
@@ -100,16 +101,36 @@ test('auth: aset dengan token malformed → 401', async () => {
   }
 });
 
-test('auth: POST surat tanpa token → 401', async () => {
+test('auth: POST aset tanpa token → 401', async () => {
   const child = await nyalakan();
   try {
-    const res = await fetch(`${BASE}/api/surat`, {
+    const res = await fetch(`${BASE}/api/aset`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ nama: 'test' }),
     });
     const data = await res.json();
     assert.equal(res.status, 401);
+    assert.ok(data.error);
+  } finally {
+    child.kill();
+  }
+});
+
+test('auth: POST aset dengan role user (bukan admin) → 403', async () => {
+  const child = await nyalakan();
+  try {
+    const token = makeToken({ sub: 'test-user', role: 'user' });
+    const res = await fetch(`${BASE}/api/aset`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify({ nama: 'test' }),
+    });
+    const data = await res.json();
+    assert.equal(res.status, 403);
     assert.ok(data.error);
   } finally {
     child.kill();
@@ -138,13 +159,49 @@ test('auth: config tanpa token → 200 (public)', async () => {
   }
 });
 
-test('auth: aset dengan token valid → 200', async () => {
+test('auth: GET aset dengan token valid + admin → 200', async () => {
   const child = await nyalakan();
   try {
-    const token = makeToken({ sub: 'test-user' });
+    const token = makeToken({ sub: 'test-user', role: 'admin' });
     const res = await json('GET', '/api/aset', token);
     assert.equal(res.status, 200);
     assert.ok(Array.isArray(res.data));
+  } finally {
+    child.kill();
+  }
+});
+
+test('auth: GET aset dengan token valid + user → 200 (read allowed)', async () => {
+  const child = await nyalakan();
+  try {
+    const token = makeToken({ sub: 'test-user', role: 'user' });
+    const res = await json('GET', '/api/aset', token);
+    assert.equal(res.status, 200);
+    assert.ok(Array.isArray(res.data));
+  } finally {
+    child.kill();
+  }
+});
+
+test('auth: trailing slash /api/aset/ + token valid → still protected', async () => {
+  const child = await nyalakan();
+  try {
+    const res = await json('GET', '/api/aset/', null);
+    assert.equal(res.status, 401);
+  } finally {
+    child.kill();
+  }
+});
+
+test('auth: unsupported method PATCH /api/aset + token → 405 or no-match', async () => {
+  const child = await nyalakan();
+  try {
+    const token = makeToken({ sub: 'test-user', role: 'admin' });
+    const res = await fetch(`${BASE}/api/aset`, {
+      method: 'PATCH',
+      headers: { 'Authorization': `Bearer ${token}` },
+    });
+    assert.ok([404, 405].includes(res.status), `Expected 404/405, got ${res.status}`);
   } finally {
     child.kill();
   }

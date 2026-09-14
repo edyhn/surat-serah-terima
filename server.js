@@ -19,6 +19,30 @@ function requireAuth(req, res, next) {
   next();
 }
 
+function requireRole(role) {
+  return (req, res, next) => {
+    if (!req.user) {
+      return res.status(401).json({ error: 'Autentikasi diperlukan.' });
+    }
+    if (req.user.role !== role) {
+      return res.status(403).json({ error: 'Otorisasi ditolak.' });
+    }
+    next();
+  };
+}
+
+function requireAssetAdmin(req, res, next) {
+  const token = extractAndValidateToken(req);
+  if (!token) {
+    return res.status(401).json({ error: 'Autentikasi diperlukan.' });
+  }
+  req.user = token;
+  if (req.user.role !== 'admin' && req.user.role !== 'asset_admin') {
+    return res.status(403).json({ error: 'Akses ditolak. Hanya admin yang dapat mengelola aset.' });
+  }
+  next();
+}
+
 // Rate limit sederhana in-memory: 120 req / menit per IP untuk /api
 const rateMap = new Map();
 const RATE_WINDOW = 60 * 1000;
@@ -507,7 +531,7 @@ app.get('/api/aset', requireAuth, async (_req, res) => {
   }
 });
 
-app.post('/api/aset', requireAuth, async (req, res) => {
+app.post('/api/aset', requireAssetAdmin, async (req, res) => {
   try {
     const hasil = validasiAset(req.body || {});
     if (hasil.error) return res.status(400).json({ error: hasil.error });
@@ -523,7 +547,7 @@ app.post('/api/aset', requireAuth, async (req, res) => {
   }
 });
 
-app.put('/api/aset/:kode', requireAuth, async (req, res) => {
+app.put('/api/aset/:kode', requireAssetAdmin, async (req, res) => {
   try {
     const hasil = validasiAset(req.body || {});
     if (hasil.error) return res.status(400).json({ error: hasil.error });
@@ -536,7 +560,7 @@ app.put('/api/aset/:kode', requireAuth, async (req, res) => {
   }
 });
 
-app.delete('/api/aset/:kode', requireAuth, async (req, res) => {
+app.delete('/api/aset/:kode', requireAssetAdmin, async (req, res) => {
   try {
     const ok = await storage.aset.hapusAset(req.params.kode);
     if (!ok) return res.status(404).json({ error: 'Aset tidak ditemukan.' });

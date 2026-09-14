@@ -26,6 +26,7 @@ function nyalakan() {
         NOMOR_FILE: path.join(tmp, 'nomor.json'),
         ASET_FILE: path.join(tmp, 'aset.json'),
         SURAT_ASET_FILE: path.join(tmp, 'surat_aset.json'),
+        SUPABASE_JWT_SECRET: 'test-secret-key',
       },
       stdio: 'ignore',
     });
