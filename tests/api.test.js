@@ -60,6 +60,42 @@ async function json(method, url, body, auth = DEFAULT_AUTH) {
   return { status: res.status, data: await res.json().catch(() => ({})) };
 }
 
+test('api: departemen bebas teks diterima, ditolak saat kosong/whitespace/terlalu panjang, tetap utuh di detail', async () => {
+  const child = await nyalakan();
+  try {
+    const payload = {
+      nama: 'Edy',
+      departemen: 'Direktorat Digital',
+      penerima: 'Isti',
+      departemenPenerima: 'Divisi Keuangan Baru',
+      keterangan: 'Laptop Asus',
+      kategori: 'penyerahan',
+    };
+
+    const buat = await json('POST', '/api/surat', payload);
+    assert.equal(buat.status, 200);
+    assert.equal(buat.data.departemen, 'Direktorat Digital', 'departemen bebas tersimpan utuh');
+    assert.equal(buat.data.departemenPenerima, 'Divisi Keuangan Baru', 'departemen penerima tersimpan utuh');
+
+    const nomor = buat.data.nomor;
+    const satu = await json('GET', `/api/surat/${encodeURIComponent(nomor)}`);
+    assert.equal(satu.status, 200);
+    assert.equal(satu.data.departemen, 'Direktorat Digital', 'detail membaca departemen utuh');
+    assert.equal(satu.data.departemenPenerima, 'Divisi Keuangan Baru', 'detail membaca dept penerima utuh');
+
+    const kosong = await json('POST', '/api/surat', { ...payload, departemen: '   ' });
+    assert.equal(kosong.status, 400, 'departemen whitespace ditolak');
+
+    const panjang = await json('POST', '/api/surat', { ...payload, departemenPenerima: 'N'.repeat(101) });
+    assert.equal(panjang.status, 400, 'departemen > 100 karakter ditolak');
+
+    const persis100 = await json('POST', '/api/surat', { ...payload, departemenPenerima: 'N'.repeat(100) });
+    assert.equal(persis100.status, 200, 'departemen 100 karakter diterima');
+  } finally {
+    child.kill();
+  }
+});
+
 test('api: alur lengkap POST-GET-PUT-DELETE + PDF', async () => {
   const child = await nyalakan();
   try {

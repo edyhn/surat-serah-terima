@@ -29,6 +29,22 @@ describe("API contracts tanpa Supabase", () => {
     expect(() => ttdSchema.parse({ ttd: {} })).toThrow("Tidak ada tanda tangan");
   });
 
+  it("departemen menerima teks bebas dan dinormalisasi trim tanpa kapitalisasi otomatis", () => {
+    const payload = { ...surat, aset: [], departemen: "  Digital Tech  ", departemenPenerima: "Keuangan & Akuntansi" };
+    const parsed = suratSchema.parse(payload);
+    expect(parsed.departemen).toBe("Digital Tech");
+    expect(parsed.departemenPenerima).toBe("Keuangan & Akuntansi");
+    expect(parsed.departemen).toBe("Digital Tech"); // kapitalisasi tidak diubah
+  });
+
+  it("departemen menolak kosong, whitespace-only, dan terlalu panjang", () => {
+    expect(() => suratSchema.parse({ ...surat, aset: [], departemen: "" })).toThrow("Departemen wajib diisi");
+    expect(() => suratSchema.parse({ ...surat, aset: [], departemen: "   " })).toThrow("Departemen wajib diisi");
+    expect(() => suratSchema.parse({ ...surat, aset: [], departemenPenerima: " " })).toThrow("Departemen wajib diisi");
+    expect(() => suratSchema.parse({ ...surat, aset: [], departemen: "A".repeat(101) })).toThrow("Departemen maksimal 100 karakter");
+    expect(() => suratSchema.parse({ ...surat, aset: [], departemenPenerima: "B".repeat(101) })).toThrow("Departemen maksimal 100 karakter");
+  });
+
   it("mempertahankan format nomor surat", () => {
     expect(nextNomor(["001/SRT-ST/2026"], new Date(2026, 8, 10)).nomor).toBe("002/SRT-ST/2026");
   });

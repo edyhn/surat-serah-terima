@@ -75,6 +75,7 @@ function validasiData(body) {
   const wajib = ['nama', 'departemen', 'penerima', 'departemenPenerima', 'keterangan'];
   const kosong = wajib.find((k) => !data[k]);
   if (kosong) return { error: 'Nama, departemen, dan keterangan (kedua pihak) wajib diisi.' };
+  if (data.departemen.length > 100 || data.departemenPenerima.length > 100) return { error: 'Departemen maksimal 100 karakter.' };
   if (!['penyerahan', 'pengembalian'].includes(data.kategori)) return { error: 'Kategori tidak valid.' };
   const aset = Array.isArray(body.aset) ? body.aset : [];
   for (const k of aset) {

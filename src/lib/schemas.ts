@@ -1,13 +1,18 @@
 import { z } from "zod";
 
 const requiredText = z.string().trim().min(1);
+const departemenField = z
+  .string()
+  .trim()
+  .min(1, "Departemen wajib diisi.")
+  .max(100, "Departemen maksimal 100 karakter.");
 const dataImage = z.string().startsWith("data:image/png;base64,", "Tanda tangan harus berupa PNG.").max(1_500_000);
 
 export const suratSchema = z.object({
   nama: requiredText,
-  departemen: requiredText,
+  departemen: departemenField,
   penerima: requiredText,
-  departemenPenerima: requiredText,
+  departemenPenerima: departemenField,
   keterangan: requiredText,
   kategori: z.enum(["pengadaan", "penyerahan", "pengembalian"]),
   statusAsetTujuan: z.enum(["proses_qc", "siap_pakai", "dipakai", "perbaikan"]).optional(),

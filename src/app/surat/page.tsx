@@ -92,7 +92,7 @@ export default function SuratPage() {
   }, [data]);
 
   const filtered = (data?.riwayat ?? []).filter((item) => {
-    const matchQuery = `${item.nomor} ${item.nama} ${item.penerima} ${item.keterangan}`
+    const matchQuery = `${item.nomor} ${item.nama} ${item.penerima} ${item.departemen} ${item.departemenPenerima} ${item.keterangan}`
       .toLowerCase()
       .includes(query.toLowerCase());
     const matchCategory = categoryFilter === "all" || item.kategori === categoryFilter;
@@ -327,8 +327,14 @@ export default function SuratPage() {
                         {surat.kategori}
                       </span>
                     </td>
-                    <td className="px-4 py-3.5 font-medium text-slate-800">{surat.nama}</td>
-                    <td className="px-4 py-3.5 font-medium text-slate-800">{surat.penerima}</td>
+                    <td className="px-4 py-3.5 font-medium text-slate-800">
+                      {surat.nama}
+                      <span className="block text-[11px] font-normal text-slate-500">{surat.departemen}</span>
+                    </td>
+                    <td className="px-4 py-3.5 font-medium text-slate-800">
+                      {surat.penerima}
+                      <span className="block text-[11px] font-normal text-slate-500">{surat.departemenPenerima}</span>
+                    </td>
                     <td className="px-4 py-3.5 text-right">
                       <div className="flex items-center justify-end gap-1">
                         <a

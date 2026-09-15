@@ -7,13 +7,11 @@ import { Save } from "lucide-react";
 import { z } from "zod";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
-import { Select } from "@/components/ui/Select";
 import { fetchJson } from "@/lib/utils";
 import { suratSchema } from "@/lib/schemas";
 import type { Aset, Surat } from "@/types";
 
 type Values = z.input<typeof suratSchema>;
-const departments = ["IT", "Keuangan", "HRD", "Umum", "Pemasaran", "Produksi", "Gudang"];
 
 type FlowMode = "pengadaan" | "penyerahan" | "pengembalian";
 
@@ -186,19 +184,15 @@ export function SuratForm({
             disabled={isSubmitting}
             {...register("nama")}
           />
-          <Select
+          <Input
             label="Departemen Penyerah"
+            placeholder="Contoh: Digital Product, Operasional"
+            helper="Ketik nama departemen secara bebas."
+            maxLength={100}
             error={errors.departemen?.message}
             disabled={isSubmitting}
             {...register("departemen")}
-          >
-            <option value="">Pilih departemen</option>
-            {departments.map((item) => (
-              <option key={item} value={item}>
-                {item}
-              </option>
-            ))}
-          </Select>
+          />
         </div>
 
         <div className="space-y-4 rounded-xl border border-slate-200 bg-slate-50/50 p-4">
@@ -210,19 +204,15 @@ export function SuratForm({
             disabled={isSubmitting}
             {...register("penerima")}
           />
-          <Select
+          <Input
             label="Departemen Penerima"
+            placeholder="Contoh: Digital Product, Operasional"
+            helper="Ketik nama departemen secara bebas."
+            maxLength={100}
             error={errors.departemenPenerima?.message}
             disabled={isSubmitting}
             {...register("departemenPenerima")}
-          >
-            <option value="">Pilih departemen</option>
-            {departments.map((item) => (
-              <option key={item} value={item}>
-                {item}
-              </option>
-            ))}
-          </Select>
+          />
         </div>
       </div>
 
