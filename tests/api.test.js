@@ -292,3 +292,86 @@ test('api: validasi aset + status konsisten saat edit + nilai aset di GET', asyn
     child.kill();
   }
 });
+
+test('api: OPTIONS ke route internal tidak membocorkan data sensitif', async () => {
+  const child = await nyalakan();
+  try {
+    const png = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+    const payload = {
+      nama: 'Edy',
+      departemen: 'HCM',
+      penerima: 'Isti',
+      departemenPenerima: 'FAT',
+      keterangan: 'Laptop Asus',
+      kategori: 'penyerahan',
+    };
+    const buat = await json('POST', '/api/surat', payload);
+    assert.equal(buat.status, 200);
+    const nomor = buat.data.nomor;
+
+    // OPTIONS ke route terdefinisi → 204 seragam, body kosong, tanpa set-cookie
+    const ttdOpt = await fetch(`${BASE}/api/surat/${encodeURIComponent(nomor)}/ttd`, { method: 'OPTIONS' });
+    assert.equal(ttdOpt.status, 204, 'OPTIONS ke route terdefinisi harus 204');
+    const ttdBody = await ttdOpt.text();
+    assert.equal(ttdBody, '', 'OPTIONS ke route internal tidak boleh mengembalikan body');
+
+    // OPTIONS ke route internal lain harus tetap 204 kosong (tanpa oracle route-existence)
+    for (const p of ['/api/riwayat', '/api/aset', `/api/surat/${encodeURIComponent(nomor)}`]) {
+      const r = await fetch(BASE + p, { method: 'OPTIONS' });
+      assert.equal(r.status, 204, `OPTIONS ${p} harus 204 seragam`);
+      const body = await r.text();
+      assert.equal(body, '', `OPTIONS ${p} tidak boleh mengembalikan body`);
+      assert.equal(Boolean(r.headers.get('set-cookie')), false, `OPTIONS ${p} tidak boleh set cookie`);
+    }
+
+    // OPTIONS tidak boleh meneruskan ke handler autentikasi/sensitif
+    const bios = await fetch(BASE + '/api/aset', { method: 'OPTIONS', headers: { 'Authorization': 'Bearer test:admin:admin-user-legacy:server:active' } });
+    assert.equal(bios.status, 204, 'OPTIONS /api/aset dengan auth tetap 204');
+    assert.equal(await bios.text(), '', 'OPTIONS /api/aset dengan auth tetap tidak boleh memuat data');
+
+    // OPTIONS ke path tidak dikenal — dibalas 204 yang sama, bukan 404 (menutup oracle)
+    const unknown = await fetch(BASE + '/api/route-tidak-ada', { method: 'OPTIONS' });
+    assert.equal(unknown.status, 204, 'OPTIONS ke path tidak dikenal harus 204 juga');
+    assert.equal(await unknown.text(), '', 'OPTIONS ke route tidak dikenal tidak boleh memuat body');
+  } finally {
+    child.kill();
+  }
+});
+
+test('api: rate-limit per nomor pada /api/surat/:nomor/ttd (anti brute-force)', async () => {
+  const child = await nyalakan();
+  try {
+    const png = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+    const payload = {
+      nama: 'Edy',
+      departemen: 'HCM',
+      penerima: 'Isti',
+      departemenPenerima: 'FAT',
+      keterangan: 'Laptop Asus',
+      kategori: 'penyerahan',
+    };
+    const buat = await json('POST', '/api/surat', payload);
+    assert.equal(buat.status, 200);
+    const nomor = buat.data.nomor;
+
+    const ttd = { ttd: { menyerahkan: 'data:image/png;base64,' + png } };
+    let terakhir;
+    let ke429 = 0;
+    // Kirim lebih dari TTD_RATE_MAX (5) percobaan pada nomor yang sama
+    for (let i = 0; i < 8; i++) {
+      terakhir = await json('POST', `/api/surat/${encodeURIComponent(nomor)}/ttd`, ttd);
+      if (terakhir.status === 429) ke429++;
+    }
+    assert.ok(ke429 > 0, 'harus ada respons 429 saat melebihi limit per nomor');
+    assert.equal(terakhir.status, 429, 'percobaan setelah limit harus ditolak 429');
+    assert.match(terakhir.data.error || '', /coba lagi/i);
+
+    // Limit terpisah per nomor: nomor lain tetap bisa dipakai
+    const kedua = await json('POST', '/api/surat', { ...payload, nama: 'Budi', kategori: 'pengembalian' });
+    assert.equal(kedua.status, 200);
+    const ttd2 = await json('POST', `/api/surat/${encodeURIComponent(kedua.data.nomor)}/ttd`, ttd);
+    assert.equal(ttd2.status, 200, 'nomor surat lain tidak terkena limit dari nomor yang di-hammer');
+  } finally {
+    child.kill();
+  }
+});
