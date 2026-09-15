@@ -13,6 +13,8 @@ create table if not exists public.aset (
   pic_ids text[] default '{}',
   lokasi text default '',
   keterangan text default '',
+  assignee_id text,
+  transfer_to_id text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );

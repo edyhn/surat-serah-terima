@@ -18,6 +18,8 @@ alter table public.aset add column if not exists owner_id text;
 alter table public.aset add column if not exists pic_ids text[] not null default '{}';
 alter table public.aset add column if not exists lokasi text not null default '';
 alter table public.aset add column if not exists keterangan text not null default '';
+alter table public.aset add column if not exists assignee_id text;
+alter table public.aset add column if not exists transfer_to_id text;
 
 -- 3) Indexes/constraints for scope lookups.
 create index if not exists idx_aset_owner_id on public.aset(owner_id);

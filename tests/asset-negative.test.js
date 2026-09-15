@@ -256,4 +256,54 @@ describe('ISSUE-42 negative tests', () => {
       assert.equal(ambil.data.status, 'dipakai', 'status lifecycle harus tersimpan di storage');
     } finally { child.kill(); }
   });
+
+  test('lifecycle persist transfer_to_id dan assignee_id', async () => {
+    const child = await nyalakan();
+    try {
+      const buat = await json('POST', '/api/aset', { nama: 'A', kategori: 'IT' });
+      assert.equal(buat.status, 200);
+      const kode = buat.data.kode;
+
+      const r = await json('POST', `/api/aset/${encodeURIComponent(kode)}/lifecycle`, {
+        status: 'dipakai',
+        assignee_id: 'user-ow-001',
+        transfer_to_id: 'user-ow-002',
+      });
+      assert.equal(r.status, 200);
+      assert.equal(r.data.assignee_id, 'user-ow-001', 'lifecycle harus mengembalikan assignee_id tersimpan');
+      assert.equal(r.data.transfer_to_id, 'user-ow-002', 'lifecycle harus mengembalikan transfer_to_id tersimpan');
+      assert.equal(r.data.status, 'dipakai');
+
+      const ambil = await json('GET', `/api/aset/${encodeURIComponent(kode)}`);
+      assert.equal(ambil.status, 200);
+      assert.equal(ambil.data.assignee_id, 'user-ow-001', 'assignee_id harus tersimpan di storage');
+      assert.equal(ambil.data.transfer_to_id, 'user-ow-002', 'transfer_to_id harus tersimpan di storage');
+    } finally { child.kill(); }
+  });
+
+  test('lifecycle menolak assignee_id non-string', async () => {
+    const child = await nyalakan();
+    try {
+      const buat = await json('POST', '/api/aset', { nama: 'A', kategori: 'IT' });
+      assert.equal(buat.status, 200);
+      const kode = buat.data.kode;
+
+      const r = await json('POST', `/api/aset/${encodeURIComponent(kode)}/lifecycle`, { assignee_id: { evil: 1 } });
+      assert.equal(r.status, 400);
+      assert.ok(String(r.data.error).includes('assignee_id'));
+    } finally { child.kill(); }
+  });
+
+  test('lifecycle menolak unknown field (strict DTO)', async () => {
+    const child = await nyalakan();
+    try {
+      const buat = await json('POST', '/api/aset', { nama: 'A', kategori: 'IT' });
+      assert.equal(buat.status, 200);
+      const kode = buat.data.kode;
+
+      const r = await json('POST', `/api/aset/${encodeURIComponent(kode)}/lifecycle`, { status: 'dipakai', escalated: true });
+      assert.equal(r.status, 400);
+      assert.ok(String(r.data.error).includes('escalated'));
+    } finally { child.kill(); }
+  });
 });

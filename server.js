@@ -200,8 +200,21 @@ function validasiLifecycleAset(body) {
 
   const data = {};
   if (status) data.status = status;
-  if (body.assignee_id !== undefined) data.assignee_id = body.assignee_id;
-  if (body.transfer_to_id !== undefined) data.transfer_to_id = body.transfer_to_id;
+
+  const bersih = (v) => (typeof v === 'string' ? v.trim() : v);
+  for (const kolom of ['assignee_id', 'transfer_to_id']) {
+    const val = body[kolom];
+    if (val === undefined) continue;
+    if (val === null) {
+      data[kolom] = null;
+      continue;
+    }
+    const s = bersih(val);
+    if (typeof s !== 'string' || s.length === 0) {
+      return { error: `${kolom} harus berupa teks non-kosong.` };
+    }
+    data[kolom] = s;
+  }
 
   return { data };
 }
@@ -689,6 +702,8 @@ app.post('/api/aset/:kode/lifecycle', requireAuth(), async (req, res) => {
     const hasil = validasiLifecycleAset(req.body || {});
     if (hasil.error) return res.status(400).json({ error: hasil.error });
 
+    const payload = { ...hasil.data };
+
     if (hasil.data.status) {
       const currentStatus = aset.status || 'tersedia';
       const newStatus = hasil.data.status;
@@ -706,8 +721,11 @@ app.post('/api/aset/:kode/lifecycle', requireAuth(), async (req, res) => {
           error: `Transisi dari '${currentStatus}' ke '${newStatus}' tidak diizinkan. Transisi valid: ${validTransitions[currentStatus].join(', ') || 'tidak ada'}`
         });
       }
+      payload.status = newStatus;
+    }
 
-      await storage.aset.updateAset(req.params.kode, { status: newStatus }, buildAsetPredicate(req.user), req.user);
+    if (Object.keys(payload).length > 0) {
+      await storage.aset.updateAset(req.params.kode, payload, buildAsetPredicate(req.user), req.user);
     }
 
     const updated = await storage.aset.ambilAset(req.params.kode);
