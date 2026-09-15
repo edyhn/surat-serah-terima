@@ -42,7 +42,10 @@ export async function GET(request: NextRequest) {
   try {
     const userId = await getAuthenticatedUserId(request);
     if (!userId) {
-      return NextResponse.json({ error: "Autentikasi diperlukan." }, { status: 401 });
+      return NextResponse.json(
+        { error: "Autentikasi diperlukan." },
+        { status: 401 },
+      );
     }
 
     const nomor = request.nextUrl.searchParams.get("nomor");
@@ -58,9 +61,13 @@ export async function GET(request: NextRequest) {
 /** POST /api/signing/token → issue token */
 export async function POST(request: NextRequest) {
   try {
+    // Endpoint manajemen token wajib login — verified via middleware AND ulang di sini
     const userId = await getAuthenticatedUserId(request);
     if (!userId) {
-      return NextResponse.json({ error: "Autentikasi diperlukan." }, { status: 401 });
+      return NextResponse.json(
+        { error: "Autentikasi diperlukan." },
+        { status: 401 },
+      );
     }
 
     const body = issueSchema.parse(await request.json());
@@ -87,7 +94,7 @@ export async function POST(request: NextRequest) {
 
     // Bangun URL signing (tanpa expose ke log)
     const baseUrl = process.env.BASE_URL?.replace(/\/$/, "") ?? "";
-    const signingUrl = `${baseUrl}/sign/exchange/${result.rawToken}`;
+    const signingUrl = `${baseUrl}/sign/exchange?t=${result.rawToken}`;
 
     return NextResponse.json({
       tokenId: result.tokenId,

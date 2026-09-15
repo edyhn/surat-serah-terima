@@ -9,19 +9,42 @@ import { NextRequest, NextResponse } from "next/server";
 import { apiError } from "@/lib/api";
 import { revokeToken, issueSigningToken, getCurrentDocumentVersion } from "@/lib/token-data";
 import { generateCorrelationId } from "@/lib/token-utils";
-import { createServerClient } from "@supabase/ssr";
 import { createAdminClient } from "@/lib/supabase-admin";
+import { createServerClient } from "@supabase/ssr";
 
 type Context = { params: Promise<{ id: string }> };
+
+/** Dapatkan user id dari sesi aktif; null jika tidak terautentikasi */
+async function getAuthenticatedUserId(request: NextRequest): Promise<string | null> {
+  try {
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+    if (!url || !anonKey) return null;
+    const supabase = createServerClient(url, anonKey, {
+      cookies: { getAll: () => request.cookies.getAll(), setAll: () => {} },
+    });
+    const { data } = await supabase.auth.getClaims();
+    return data?.claims?.sub ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/** Wajib login untuk endpoint manajemen token */
+async function requireAuth(request: NextRequest): Promise<string | NextResponse> {
+  const userId = await getAuthenticatedUserId(request);
+  if (!userId) {
+    return NextResponse.json({ error: "Autentikasi diperlukan." }, { status: 401 });
+  }
+  return userId;
+}
 
 /** DELETE /api/signing/token/[id] */
 export async function DELETE(request: NextRequest, context: Context) {
   const correlationId = generateCorrelationId();
   try {
-    const userId = await getAuthenticatedUserId(request);
-    if (!userId) {
-      return NextResponse.json({ error: "Autentikasi diperlukan." }, { status: 401 });
-    }
+    const auth = await requireAuth(request);
+    if (auth instanceof NextResponse) return auth;
 
     const { id } = await context.params;
     await revokeToken(id, correlationId);
@@ -36,10 +59,8 @@ export async function DELETE(request: NextRequest, context: Context) {
 export async function POST(request: NextRequest, context: Context) {
   const correlationId = generateCorrelationId();
   try {
-    const userId = await getAuthenticatedUserId(request);
-    if (!userId) {
-      return NextResponse.json({ error: "Autentikasi diperlukan." }, { status: 401 });
-    }
+    const auth = await requireAuth(request);
+    if (auth instanceof NextResponse) return auth;
 
     const { id } = await context.params;
 
@@ -67,13 +88,13 @@ export async function POST(request: NextRequest, context: Context) {
       nomor: t.nomor_surat,
       pihak: t.pihak as import("@/types/token").PihakTtd,
       scopes: t.scopes as import("@/types/token").TokenScope[],
-      createdBy: userId,
+      createdBy: auth,
       documentVersion: version,
       documentDigest: digest,
     });
 
     const baseUrl = process.env.BASE_URL?.replace(/\/$/, "") ?? "";
-    const signingUrl = `${baseUrl}/sign/exchange/${result.rawToken}`;
+    const signingUrl = `${baseUrl}/sign/exchange?t=${result.rawToken}`;
 
     return NextResponse.json({
       tokenId: result.tokenId,
@@ -83,20 +104,5 @@ export async function POST(request: NextRequest, context: Context) {
     });
   } catch (error) {
     return apiError(error, "Gagal merotasi token.");
-  }
-}
-
-async function getAuthenticatedUserId(request: NextRequest): Promise<string | null> {
-  try {
-    const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-    if (!url || !anonKey) return null;
-    const supabase = createServerClient(url, anonKey, {
-      cookies: { getAll: () => request.cookies.getAll(), setAll: () => {} },
-    });
-    const { data } = await supabase.auth.getClaims();
-    return data?.claims?.sub ?? null;
-  } catch {
-    return null;
   }
 }

@@ -12,6 +12,7 @@ export default defineConfig([
     "api/**",
     "lib/**",
     "tests/**",
+    "Github/**",
     "buat-word.js",
     "seed.js",
     "server.js",
