@@ -329,7 +329,7 @@ async function aturStatusAset(nomorSurat, kodeLama, kodeBaru, kategori) {
   if (perluTersedia.length) await storage.aset.aturStatus(perluTersedia, 'tersedia');
 }
 
-app.get('/api/riwayat/download', async (_req, res) => {
+app.get('/api/riwayat/download', requireAuth(), async (_req, res) => {
   try {
     const daftar = await storage.bacaRiwayat();
     const map = await storage.aset.kodeAsetPerNomor();
@@ -433,7 +433,7 @@ app.get('/api/config', (_req, res) => {
   });
 });
 
-app.get('/api/bootstrap', async (_req, res) => {
+app.get('/api/bootstrap', requireAuth(), async (_req, res) => {
   try {
     const [daftar, map, ttdMap, aset] = await Promise.all([
       storage.bacaRiwayat(),
@@ -463,7 +463,7 @@ app.get('/api/bootstrap', async (_req, res) => {
   }
 });
 
-app.get('/api/riwayat', async (_req, res) => {
+app.get('/api/riwayat', requireAuth(), async (_req, res) => {
   try {
     const [daftar, map, ttdMap] = await Promise.all([
       storage.bacaRiwayat(),

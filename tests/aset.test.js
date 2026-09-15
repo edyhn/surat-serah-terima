@@ -29,7 +29,9 @@ function nyalakan() {
     const awal = Date.now();
     const cek = setInterval(async () => {
       try {
-        const r = await fetch(`${BASE}/api/riwayat`);
+        const r = await fetch(`${BASE}/api/riwayat`, {
+          headers: { 'Authorization': 'Bearer test:admin:admin-user-legacy' },
+        });
         if (r.ok) {
           clearInterval(cek);
           resolve(child);
