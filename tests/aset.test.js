@@ -8,7 +8,6 @@ const path = require('node:path');
 const PORT = 3299;
 const BASE = `http://localhost:${PORT}`;
 const tmp = path.join(os.tmpdir(), 'ssterima-aset-test');
-const tahun = new Date().getFullYear();
 
 function nyalakan() {
   return new Promise((resolve, reject) => {
@@ -18,6 +17,8 @@ function nyalakan() {
       env: {
         ...process.env,
         PORT: String(PORT),
+        NODE_ENV: 'test',
+        TEST_AUTH: 'true',
         EXCEL_FILE: path.join(tmp, 'riwayat.xlsx'),
         PDF_DIR: path.join(tmp, 'pdf'),
         NOMOR_FILE: path.join(tmp, 'nomor.json'),
@@ -29,7 +30,9 @@ function nyalakan() {
     const awal = Date.now();
     const cek = setInterval(async () => {
       try {
-        const r = await fetch(`${BASE}/api/riwayat`);
+        const r = await fetch(`${BASE}/api/riwayat`, {
+          headers: { 'Authorization': 'Bearer test:admin:admin-user-legacy:server:active' },
+        });
         if (r.ok) {
           clearInterval(cek);
           resolve(child);
@@ -47,39 +50,39 @@ function nyalakan() {
   });
 }
 
-async function json(method, url, body) {
-  const res = await fetch(BASE + url, {
-    method,
-    headers: body ? { 'Content-Type': 'application/json' } : undefined,
-    body: body ? JSON.stringify(body) : undefined,
-  });
+const DEFAULT_AUTH = 'Bearer test:admin:admin-user-legacy:server:active';
+async function json(method, url, body, auth = DEFAULT_AUTH) {
+  const headers = {};
+  if (body) headers['Content-Type'] = 'application/json';
+  if (auth) headers['Authorization'] = auth;
+  const res = await fetch(BASE + url, { method, headers, body: body ? JSON.stringify(body) : undefined });
   return { status: res.status, data: await res.json().catch(() => ({})) };
 }
 
 test('aset: alur CRUD + kaitan surat + tracking + status', async () => {
   const child = await nyalakan();
   try {
-    const aset = { kode: 'INV/IT-001', nama: 'Laptop Asus', kategori: 'Laptop', nilai: 9500000, kondisi: 'baik', status: 'tersedia' };
+    const aset = { nama: 'Laptop Asus', kategori: 'IT', nilai: 9500000, kondisi: 'baik' };
 
-    // CRUD aset
     const buat = await json('POST', '/api/aset', aset);
     assert.equal(buat.status, 200);
-    assert.equal(buat.data.kode, 'INV/IT-001');
+    const KODE = buat.data.kode;
+    assert.ok(KODE.startsWith('INV/'));
     assert.equal(buat.data.status, 'tersedia');
 
     const duplikat = await json('POST', '/api/aset', aset);
-    assert.equal(duplikat.status, 400);
+    assert.equal(duplikat.status, 200);
+    assert.notEqual(duplikat.data.kode, KODE);
 
     const daftar = await json('GET', '/api/aset');
     assert.equal(daftar.status, 200);
-    assert.equal(daftar.data.length, 1);
+    assert.equal(daftar.data.length, 2);
 
-    const edit = await json('PUT', `/api/aset/${encodeURIComponent('INV/IT-001')}`, { ...aset, kondisi: 'cukup', status: 'rusak' });
+    const edit = await json('PUT', `/api/aset/${encodeURIComponent(KODE)}`, { nama: aset.nama, kategori: aset.kategori, nilai: aset.nilai, kondisi: 'cukup' });
     assert.equal(edit.status, 200);
     assert.equal(edit.data.kondisi, 'cukup');
-    assert.equal(edit.data.status, 'rusak');
+    assert.equal(edit.data.status, 'tersedia');
 
-    // Buat surat yang menyerahkan aset
     const payload = {
       nama: 'Edy',
       departemen: 'HCM',
@@ -87,42 +90,38 @@ test('aset: alur CRUD + kaitan surat + tracking + status', async () => {
       departemenPenerima: 'FAT',
       keterangan: 'Penyerahan laptop',
       kategori: 'penyerahan',
-      aset: ['INV/IT-001'],
+      aset: [KODE],
     };
     const surat = await json('POST', '/api/surat', payload);
     assert.equal(surat.status, 200);
     assert.equal(surat.data.aset.length, 1);
-    assert.equal(surat.data.aset[0].kode, 'INV/IT-001');
+    assert.equal(surat.data.aset[0].kode, KODE);
     const nomor = surat.data.nomor;
 
-    // Status aset otomatis jadi dipakai
     const daftar2 = await json('GET', '/api/aset');
-    assert.equal(daftar2.data[0].status, 'dipakai');
+    const a2 = daftar2.data.find((x) => x.kode === KODE);
+    assert.equal(a2.status, 'dipakai');
 
-    // Riwayat surat memuat aset
     const riwayat = await json('GET', '/api/riwayat');
-    assert.deepEqual(riwayat.data[0].aset, ['INV/IT-001']);
+    assert.ok(riwayat.data.some((r) => r.aset && r.aset.includes(KODE)));
 
-    // Tracking per aset
-    const trk = await json('GET', `/api/aset/${encodeURIComponent('INV/IT-001')}/riwayat`);
+    const trk = await json('GET', `/api/aset/${encodeURIComponent(KODE)}/riwayat`);
     assert.equal(trk.status, 200);
     assert.equal(trk.data.length, 1);
     assert.equal(trk.data[0].nomor, nomor);
 
-    // Pengembalian -> status kembali tersedia
-    const kembali = await json('POST', '/api/surat', { ...payload, kategori: 'pengembalian', aset: ['INV/IT-001'] });
+    const kembali = await json('POST', '/api/surat', { ...payload, kategori: 'pengembalian', aset: [KODE] });
     assert.equal(kembali.status, 200);
     const daftar3 = await json('GET', '/api/aset');
-    assert.equal(daftar3.data[0].status, 'tersedia');
+    const a3 = daftar3.data.find((x) => x.kode === KODE);
+    assert.equal(a3.status, 'tersedia');
 
-    // Hapus aset
-    const hapus = await json('DELETE', `/api/aset/${encodeURIComponent('INV/IT-001')}`);
+    const hapus = await json('DELETE', `/api/aset/${encodeURIComponent(KODE)}`);
     assert.equal(hapus.status, 200);
     const daftar4 = await json('GET', '/api/aset');
-    assert.equal(daftar4.data.length, 0);
+    assert.equal(daftar4.data.length, 1);
 
-    // Tracking aset yang sudah dihapus = kosong
-    const trk2 = await json('GET', `/api/aset/${encodeURIComponent('INV/IT-001')}/riwayat`);
+    const trk2 = await json('GET', `/api/aset/${encodeURIComponent(KODE)}/riwayat`);
     assert.equal(trk2.status, 200);
     assert.equal(trk2.data.length, 0);
   } finally {

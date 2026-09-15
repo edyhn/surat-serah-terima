@@ -18,6 +18,8 @@ function nyalakan() {
       env: {
         ...process.env,
         PORT: String(PORT),
+        NODE_ENV: 'test',
+        TEST_AUTH: 'true',
         EXCEL_FILE: path.join(tmp, 'riwayat.xlsx'),
         PDF_DIR: path.join(tmp, 'pdf'),
         NOMOR_FILE: path.join(tmp, 'nomor.json'),
@@ -29,7 +31,9 @@ function nyalakan() {
     const awal = Date.now();
     const cek = setInterval(async () => {
       try {
-        const r = await fetch(`${BASE}/api/riwayat`);
+        const r = await fetch(`${BASE}/api/riwayat`, {
+          headers: { 'Authorization': 'Bearer test:admin:admin-user-legacy:server:active' },
+        });
         if (r.ok) {
           clearInterval(cek);
           resolve(child);
@@ -47,14 +51,50 @@ function nyalakan() {
   });
 }
 
-async function json(method, url, body) {
-  const res = await fetch(BASE + url, {
-    method,
-    headers: body ? { 'Content-Type': 'application/json' } : undefined,
-    body: body ? JSON.stringify(body) : undefined,
-  });
+const DEFAULT_AUTH = 'Bearer test:admin:admin-user-legacy:server:active';
+async function json(method, url, body, auth = DEFAULT_AUTH) {
+  const headers = {};
+  if (body) headers['Content-Type'] = 'application/json';
+  if (auth) headers['Authorization'] = auth;
+  const res = await fetch(BASE + url, { method, headers, body: body ? JSON.stringify(body) : undefined });
   return { status: res.status, data: await res.json().catch(() => ({})) };
 }
+
+test('api: departemen bebas teks diterima, ditolak saat kosong/whitespace/terlalu panjang, tetap utuh di detail', async () => {
+  const child = await nyalakan();
+  try {
+    const payload = {
+      nama: 'Edy',
+      departemen: 'Direktorat Digital',
+      penerima: 'Isti',
+      departemenPenerima: 'Divisi Keuangan Baru',
+      keterangan: 'Laptop Asus',
+      kategori: 'penyerahan',
+    };
+
+    const buat = await json('POST', '/api/surat', payload);
+    assert.equal(buat.status, 200);
+    assert.equal(buat.data.departemen, 'Direktorat Digital', 'departemen bebas tersimpan utuh');
+    assert.equal(buat.data.departemenPenerima, 'Divisi Keuangan Baru', 'departemen penerima tersimpan utuh');
+
+    const nomor = buat.data.nomor;
+    const satu = await json('GET', `/api/surat/${encodeURIComponent(nomor)}`);
+    assert.equal(satu.status, 200);
+    assert.equal(satu.data.departemen, 'Direktorat Digital', 'detail membaca departemen utuh');
+    assert.equal(satu.data.departemenPenerima, 'Divisi Keuangan Baru', 'detail membaca dept penerima utuh');
+
+    const kosong = await json('POST', '/api/surat', { ...payload, departemen: '   ' });
+    assert.equal(kosong.status, 400, 'departemen whitespace ditolak');
+
+    const panjang = await json('POST', '/api/surat', { ...payload, departemenPenerima: 'N'.repeat(101) });
+    assert.equal(panjang.status, 400, 'departemen > 100 karakter ditolak');
+
+    const persis100 = await json('POST', '/api/surat', { ...payload, departemenPenerima: 'N'.repeat(100) });
+    assert.equal(persis100.status, 200, 'departemen 100 karakter diterima');
+  } finally {
+    child.kill();
+  }
+});
 
 test('api: alur lengkap POST-GET-PUT-DELETE + PDF', async () => {
   const child = await nyalakan();
@@ -164,7 +204,7 @@ test('api: ttd parsial dari penerima + QR + status di riwayat', async () => {
     assert.ok(ttd.data.ttd && ttd.data.ttd.menerima, 'ttd menerima harus tersimpan');
     assert.equal(ttd.data.ttd.menyerahkan, undefined, 'ttd menyerahkan belum ada');
 
-    const satu = await json('GET', `/api/surat/${encodeURIComponent(nomor)}`);
+     const satu = await json('GET', `/api/surat/${encodeURIComponent(nomor)}`);
     assert.equal(satu.status, 200);
     assert.ok(satu.data.ttd.menerima, 'GET surat tunggal memuat ttd');
 
@@ -173,11 +213,15 @@ test('api: ttd parsial dari penerima + QR + status di riwayat', async () => {
     assert.ok(r.ttd.menerima === true, 'status ttd menerima true di riwayat');
     assert.ok(r.ttd.menyerahkan === false, 'status ttd menyerahkan masih false');
 
-    const qr = await fetch(`${BASE}/api/surat/${encodeURIComponent(nomor)}/qr`);
+    const qr = await fetch(`${BASE}/api/surat/${encodeURIComponent(nomor)}/qr`, {
+      headers: { 'Authorization': DEFAULT_AUTH },
+    });
     assert.equal(qr.status, 200);
     assert.ok((qr.headers.get('content-type') || '').includes('image/png'), 'QR berupa PNG');
 
-    const qrHrd = await fetch(`${BASE}/api/surat/${encodeURIComponent(nomor)}/qr?pihak=hrd`);
+    const qrHrd = await fetch(`${BASE}/api/surat/${encodeURIComponent(nomor)}/qr?pihak=hrd`, {
+      headers: { 'Authorization': DEFAULT_AUTH },
+    });
     assert.equal(qrHrd.status, 200);
     assert.ok((qrHrd.headers.get('content-type') || '').includes('image/png'), 'QR per pihak berupa PNG');
   } finally {
@@ -241,15 +285,14 @@ test('api: validasi aset + status konsisten saat edit + nilai aset di GET', asyn
   const child = await nyalakan();
   try {
     const asetPayload = {
-      kode: 'INV/TEST-001',
       nama: 'Laptop Test',
-      kategori: 'Laptop',
+      kategori: 'TEST',
       nilai: 5000000,
       kondisi: 'baru',
-      status: 'tersedia',
     };
     const buatAset = await json('POST', '/api/aset', asetPayload);
     assert.equal(buatAset.status, 200);
+    const KODE = buatAset.data.kode;
 
     const payload = {
       nama: 'Edy',
@@ -258,18 +301,18 @@ test('api: validasi aset + status konsisten saat edit + nilai aset di GET', asyn
       departemenPenerima: 'FAT',
       keterangan: 'Laptop',
       kategori: 'penyerahan',
-      aset: ['INV/TEST-001'],
+      aset: [KODE],
     };
     const buat = await json('POST', '/api/surat', payload);
     assert.equal(buat.status, 200);
-    assert.equal(buat.data.aset[0].kode, 'INV/TEST-001');
+    assert.equal(buat.data.aset[0].kode, KODE);
     assert.equal(buat.data.aset[0].nilai, 5000000, 'GET/POST surat memuat nilai aset');
 
     let daftar = await json('GET', '/api/aset');
-    let a = daftar.data.find((x) => x.kode === 'INV/TEST-001');
+    let a = daftar.data.find((x) => x.kode === KODE);
     assert.equal(a.status, 'dipakai', 'aset penyerahan otomatis jadi dipakai');
 
-    const objAset = await json('POST', '/api/surat', { ...payload, nama: 'Budi', aset: [{ kode: 'INV/TEST-001' }] });
+    const objAset = await json('POST', '/api/surat', { ...payload, nama: 'Budi', aset: [{ kode: KODE }] });
     assert.equal(objAset.status, 400, 'aset bertipe objek harus ditolak');
 
     const edit = await json('PUT', `/api/surat/${encodeURIComponent(buat.data.nomor)}`, {
@@ -279,7 +322,7 @@ test('api: validasi aset + status konsisten saat edit + nilai aset di GET', asyn
     assert.equal(edit.status, 200);
 
     daftar = await json('GET', '/api/aset');
-    a = daftar.data.find((x) => x.kode === 'INV/TEST-001');
+    a = daftar.data.find((x) => x.kode === KODE);
     assert.equal(a.status, 'tersedia', 'aset yang dilepas dari surat kembali tersedia');
   } finally {
     child.kill();
