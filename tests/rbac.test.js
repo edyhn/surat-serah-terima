@@ -166,6 +166,24 @@ test('rbac: viewer tidak bisa membuat surat tanpa aset', async () => {
   } finally { child.kill(); }
 });
 
+test('rbac: viewer tidak bisa menghapus surat tanpa aset (T-1)', async () => {
+  const { child, port } = await nyalakan(nextPort());
+  try {
+    const s = await json('POST', '/api/surat', {
+      nama: 'Edy', departemen: 'HCM', penerima: 'Isti', departemenPenerima: 'FAT',
+      keterangan: 'Surat untuk dihapus', kategori: 'penyerahan'
+    }, ADMIN, port);
+    const nomor = s.data.nomor;
+
+    const hapus = await json('DELETE', `/api/surat/${encodeURIComponent(nomor)}`, null, VIEWER, port);
+    assert.equal(hapus.status, 403, 'viewer tidak bisa menghapus surat tanpa aset');
+
+    const cek = await json('GET', `/api/surat/${encodeURIComponent(nomor)}`, null, VIEWER, port);
+    assert.equal(cek.status, 200, 'surat masih ada setelah delete viewer ditolak');
+    assert.equal(cek.data.nomor, nomor, 'record surat tetap utuh');
+  } finally { child.kill(); }
+});
+
 test('rbac: nested history — riwayat aset terbatas scope', async () => {
   const { child, port } = await nyalakan(nextPort());
   try {

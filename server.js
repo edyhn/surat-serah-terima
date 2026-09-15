@@ -502,8 +502,8 @@ app.get('/api/riwayat', requireAuth(), async (_req, res) => {
 });
 
 async function authorizeAsetMutation(user, kodeAset, operation) {
-  if (!kodeAset || kodeAset.length === 0) return null;
   if (!isAllowedRole(user.role, operation || 'update')) return `Akses ditolak untuk operasi '${operation || 'update'}'.`;
+  if (!kodeAset || kodeAset.length === 0) return null;
   const asetMap = new Map();
   await Promise.all(kodeAset.map(async (k) => {
     const a = await storage.aset.ambilAset(k);
@@ -580,6 +580,7 @@ app.put('/api/surat/:nomor', requireAuth(), async (req, res) => {
 
 app.delete('/api/surat/:nomor', requireAuth(), async (req, res) => {
   try {
+    if (req.user.role === 'viewer') return res.status(403).json({ error: 'Viewer tidak bisa menghapus surat.' });
     const nomor = String(req.params.nomor);
     const kodeAset = (await storage.aset.kodeAsetPerNomor())[nomor] || [];
     const errAset = await authorizeAsetMutation(req.user, kodeAset, 'delete');
@@ -684,10 +685,10 @@ app.post('/api/aset/:kode/lifecycle', requireAuth(), async (req, res) => {
     const aset = await storage.aset.ambilAset(req.params.kode);
     if (!aset) return res.status(404).json({ error: 'Aset tidak ditemukan.' });
     if (!canAccessObject(req.user, aset)) return res.status(403).json({ error: 'Akses ditolak ke aset ini.' });
-    
+
     const hasil = validasiLifecycleAset(req.body || {});
     if (hasil.error) return res.status(400).json({ error: hasil.error });
-    
+
     if (hasil.data.status) {
       const currentStatus = aset.status || 'tersedia';
       const newStatus = hasil.data.status;
@@ -699,16 +700,16 @@ app.post('/api/aset/:kode/lifecycle', requireAuth(), async (req, res) => {
         'hilang': ['dihapus'],
         'dihapus': [],
       };
-      
+
       if (!validTransitions[currentStatus] || !validTransitions[currentStatus].includes(newStatus)) {
-        return res.status(400).json({ 
-          error: `Transisi dari '${currentStatus}' ke '${newStatus}' tidak diizinkan. Transisi valid: ${validTransitions[currentStatus].join(', ') || 'tidak ada'}` 
+        return res.status(400).json({
+          error: `Transisi dari '${currentStatus}' ke '${newStatus}' tidak diizinkan. Transisi valid: ${validTransitions[currentStatus].join(', ') || 'tidak ada'}`
         });
       }
-      
+
       await storage.aset.updateAset(req.params.kode, { status: newStatus }, buildAsetPredicate(req.user), req.user);
     }
-    
+
     const updated = await storage.aset.ambilAset(req.params.kode);
     res.json(updated || aset);
   } catch (err) {
