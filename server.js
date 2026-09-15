@@ -118,6 +118,74 @@ function ttdDataUrl(ttd) {
   return out;
 }
 
+const KONDISI_VALID = ['baru', 'sangat-baik', 'baik', 'cukup', 'rusak-ringan', 'rusak-berat'];
+const STATUS_VALID = ['tersedia', 'dipakai', 'perbaikan', 'rusak', 'hilang', 'dihapus'];
+const ASET_CREATE_ALLOWLIST = new Set(['nama', 'kategori', 'nilai', 'kondisi', 'keterangan', 'pic', 'lokasi']);
+const ASET_UPDATE_ALLOWLIST = new Set(['nama', 'kategori', 'nilai', 'kondisi', 'keterangan', 'pic', 'lokasi']);
+const ASET_LIFECYCLE_ALLOWLIST = new Set(['status', 'assignee_id', 'transfer_to_id']);
+
+function validasiCreateAset(body) {
+  const bersih = (v) => (typeof v === 'string' ? v.trim() : '');
+  const nama = bersih(body.nama);
+  if (!nama) return { error: 'Nama aset wajib diisi.' };
+  
+  const rejected = Object.keys(body || {}).filter((k) => !ASET_CREATE_ALLOWLIST.has(k) && !['kode', 'id', 'created_at', 'updated_at', 'created_by', 'updated_by', 'status'].includes(k));
+  const forbidden = Object.keys(body || {}).filter((k) => ['kode', 'id', 'created_at', 'updated_at', 'created_by', 'updated_by', 'status'].includes(k));
+  if (forbidden.length > 0) {
+    return { error: `Field server-managed tidak boleh dikirim: ${forbidden.join(', ')}` };
+  }
+  
+  const nilai = Number(body.nilai);
+  const kondisi = bersih(body.kondisi);
+  return {
+    data: {
+      nama,
+      kategori: bersih(body.kategori),
+      nilai: Number.isFinite(nilai) && nilai > 0 ? nilai : 0,
+      kondisi: KONDISI_VALID.includes(kondisi) ? kondisi : 'baik',
+      keterangan: bersih(body.keterangan),
+      pic: bersih(body.pic),
+      lokasi: bersih(body.lokasi),
+    },
+  };
+}
+
+function validasiUpdateAset(body) {
+  const bersih = (v) => (typeof v === 'string' ? v.trim() : '');
+  const forbidden = Object.keys(body || {}).filter((k) => ['kode', 'id', 'created_at', 'updated_at', 'created_by', 'updated_by', 'status'].includes(k));
+  if (forbidden.length > 0) {
+    return { error: `Field server-managed atau privilege-sensitive tidak boleh diubah: ${forbidden.join(', ')}` };
+  }
+  
+  const nilai = body.nilai !== undefined ? Number(body.nilai) : undefined;
+  const kondisi = body.kondisi !== undefined ? bersih(body.kondisi) : undefined;
+  
+  const data = {};
+  if (body.nama !== undefined) data.nama = bersih(body.nama);
+  if (body.kategori !== undefined) data.kategori = bersih(body.kategori);
+  if (nilai !== undefined && Number.isFinite(nilai) && nilai > 0) data.nilai = nilai;
+  if (kondisi !== undefined && KONDISI_VALID.includes(kondisi)) data.kondisi = kondisi;
+  if (body.keterangan !== undefined) data.keterangan = bersih(body.keterangan);
+  if (body.pic !== undefined) data.pic = bersih(body.pic);
+  if (body.lokasi !== undefined) data.lokasi = bersih(body.lokasi);
+  
+  return { data };
+}
+
+function validasiLifecycleAset(body) {
+  const status = (body.status || '').trim();
+  if (status && !STATUS_VALID.includes(status)) {
+    return { error: `Status tidak valid. Harus salah satu dari: ${STATUS_VALID.join(', ')}` };
+  }
+  
+  const data = {};
+  if (status) data.status = status;
+  if (body.assignee_id !== undefined) data.assignee_id = body.assignee_id;
+  if (body.transfer_to_id !== undefined) data.transfer_to_id = body.transfer_to_id;
+  
+  return { data };
+}
+
 function validasiAset(body) {
   const bersih = (v) => (typeof v === 'string' ? v.trim() : '');
   const kode = bersih(body.kode);
@@ -126,8 +194,6 @@ function validasiAset(body) {
   const nilai = Number(body.nilai);
   const status = bersih(body.status);
   const kondisi = bersih(body.kondisi);
-  const KONDISI_VALID = ['baru', 'sangat-baik', 'baik', 'cukup', 'rusak-ringan', 'rusak-berat'];
-  const STATUS_VALID = ['tersedia', 'dipakai', 'perbaikan', 'rusak', 'hilang', 'dihapus'];
   return {
     data: {
       kode,
@@ -538,16 +604,10 @@ app.get('/api/aset', requireAuth(), async (req, res) => {
 app.post('/api/aset', requireAuth(), async (req, res) => {
   try {
     if (!isAllowedRole(req.user.role, 'create')) return res.status(403).json({ error: 'Tidak berwenang membuat aset.' });
-    const body = req.body || {};
-    delete body.kode;
-    delete body.id;
-    delete body.created_at;
-    delete body.updated_at;
-    delete body.owner_id;
-    delete body.pic_ids;
-    const hasil = validasiAset(body);
+    const hasil = validasiCreateAset(req.body || {});
     if (hasil.error) return res.status(400).json({ error: hasil.error });
     hasil.data.kode = await autoKodeAset(hasil.data.kategori);
+    hasil.data.status = 'tersedia';
     if (req.user.role === 'pic') {
       hasil.data.owner_id = req.user.userId;
       hasil.data.pic_ids = [req.user.userId];
@@ -580,15 +640,7 @@ app.put('/api/aset/:kode', requireAuth(), async (req, res) => {
     if (!isAllowedRole(req.user.role, 'update')) return res.status(403).json({ error: 'Tidak berwenang mengubah aset.' });
     const aset = await storage.aset.ambilAset(req.params.kode);
     if (!canAccessObject(req.user, aset)) return res.status(403).json({ error: 'Akses ditolak ke aset ini.' });
-    const body = req.body || {};
-    delete body.kode;
-    delete body.id;
-    delete body.created_at;
-    delete body.updated_at;
-    delete body.status;
-    delete body.owner_id;
-    delete body.pic_ids;
-    const hasil = validasiAset(body);
+    const hasil = validasiUpdateAset(req.body || {});
     if (hasil.error) return res.status(400).json({ error: hasil.error });
     const predicate = buildAsetPredicate(req.user);
     const updated = await storage.aset.updateAset(req.params.kode, hasil.data, predicate);
@@ -600,6 +652,45 @@ app.put('/api/aset/:kode', requireAuth(), async (req, res) => {
       return res.status(403).json({ error: 'Akses ditolak ke aset ini.' });
     }
     res.status(500).json({ error: 'Gagal mengubah aset.' });
+  }
+});
+
+app.post('/api/aset/:kode/lifecycle', requireAuth(), async (req, res) => {
+  try {
+    if (!isAllowedRole(req.user.role, 'update')) return res.status(403).json({ error: 'Tidak berwenang mengubah lifecycle aset.' });
+    const aset = await storage.aset.ambilAset(req.params.kode);
+    if (!aset) return res.status(404).json({ error: 'Aset tidak ditemukan.' });
+    if (!canAccessObject(req.user, aset)) return res.status(403).json({ error: 'Akses ditolak ke aset ini.' });
+    
+    const hasil = validasiLifecycleAset(req.body || {});
+    if (hasil.error) return res.status(400).json({ error: hasil.error });
+    
+    if (hasil.data.status) {
+      const currentStatus = aset.status || 'tersedia';
+      const newStatus = hasil.data.status;
+      const validTransitions = {
+        'tersedia': ['dipakai', 'perbaikan', 'rusak', 'hilang'],
+        'dipakai': ['tersedia', 'perbaikan', 'rusak', 'hilang', 'dihapus'],
+        'perbaikan': ['dipakai', 'tersedia', 'rusak', 'hilang', 'dihapus'],
+        'rusak': ['perbaikan', 'hilang', 'dihapus'],
+        'hilang': ['dihapus'],
+        'dihapus': [],
+      };
+      
+      if (!validTransitions[currentStatus] || !validTransitions[currentStatus].includes(newStatus)) {
+        return res.status(400).json({ 
+          error: `Transisi dari '${currentStatus}' ke '${newStatus}' tidak diizinkan. Transisi valid: ${validTransitions[currentStatus].join(', ') || 'tidak ada'}` 
+        });
+      }
+      
+      await storage.aset.updateAset(req.params.kode, { status: newStatus });
+    }
+    
+    const updated = await storage.aset.ambilAset(req.params.kode);
+    res.json(updated || aset);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Gagal mengubah lifecycle aset.' });
   }
 });
 
