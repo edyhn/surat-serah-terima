@@ -30,7 +30,9 @@ function nyalakan() {
     const awal = Date.now();
     const cek = setInterval(async () => {
       try {
-        const r = await fetch(`${BASE}/api/riwayat`);
+        const r = await fetch(`${BASE}/api/riwayat`, {
+          headers: { 'Authorization': 'Bearer test:admin:admin-user-001' },
+        });
         if (r.ok) { clearInterval(cek); resolve(child); return; }
       } catch { /* belum siap */ }
       if (Date.now() - awal > 10000) { clearInterval(cek); child.kill(); reject(new Error('Server tidak bisa dinyalakan.')); }

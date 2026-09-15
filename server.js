@@ -253,7 +253,7 @@ async function aturStatusAset(nomorSurat, kodeLama, kodeBaru, kategori) {
   if (perluTersedia.length) await storage.aset.aturStatus(perluTersedia, 'tersedia');
 }
 
-app.get('/api/riwayat/download', async (_req, res) => {
+app.get('/api/riwayat/download', requireAuth(), async (_req, res) => {
   try {
     const daftar = await storage.bacaRiwayat();
     const map = await storage.aset.kodeAsetPerNomor();
@@ -270,7 +270,7 @@ app.get('/api/riwayat/download', async (_req, res) => {
   }
 });
 
-app.get('/api/surat/:nomor/pdf', async (req, res) => {
+app.get('/api/surat/:nomor/pdf', requireAuth(), async (req, res) => {
   try {
     const namaFile = String(req.params.nomor).replace(/[/\\]/g, '-') + '.pdf';
     const buffer = await storage.ambilPdf(namaFile);
@@ -283,7 +283,7 @@ app.get('/api/surat/:nomor/pdf', async (req, res) => {
   }
 });
 
-app.get('/api/surat/:nomor/qr', async (req, res) => {
+app.get('/api/surat/:nomor/qr', requireAuth(), async (req, res) => {
   try {
     const pihak = PIHAK_TTD.includes(req.query.pihak) ? String(req.query.pihak) : null;
     const png = await QRCode.toBuffer(ttdUrl(req, req.params.nomor, pihak), {
@@ -299,7 +299,7 @@ app.get('/api/surat/:nomor/qr', async (req, res) => {
   }
 });
 
-app.post('/api/surat/:nomor/ttd', async (req, res) => {
+app.post('/api/surat/:nomor/ttd', requireAuth(), async (req, res) => {
   try {
     const surat = await cariSurat(req.params.nomor);
     if (!surat) return res.status(404).json({ error: 'Surat tidak ditemukan.' });
@@ -329,7 +329,7 @@ app.post('/api/surat/:nomor/ttd', async (req, res) => {
   }
 });
 
-app.get('/api/surat/:nomor', async (req, res) => {
+app.get('/api/surat/:nomor', requireAuth(), async (req, res) => {
   try {
     const surat = await cariSurat(req.params.nomor);
     if (!surat) return res.status(404).json({ error: 'Surat tidak ditemukan.' });
@@ -357,7 +357,7 @@ app.get('/api/config', (_req, res) => {
   });
 });
 
-app.get('/api/bootstrap', async (_req, res) => {
+app.get('/api/bootstrap', requireAuth(), async (_req, res) => {
   try {
     const [daftar, map, ttdMap, aset] = await Promise.all([
       storage.bacaRiwayat(),
@@ -387,7 +387,7 @@ app.get('/api/bootstrap', async (_req, res) => {
   }
 });
 
-app.get('/api/riwayat', async (_req, res) => {
+app.get('/api/riwayat', requireAuth(), async (_req, res) => {
   try {
     const [daftar, map, ttdMap] = await Promise.all([
       storage.bacaRiwayat(),
@@ -405,7 +405,7 @@ app.get('/api/riwayat', async (_req, res) => {
   }
 });
 
-app.post('/api/surat', async (req, res) => {
+app.post('/api/surat', requireAuth(), async (req, res) => {
   try {
     const hasil = validasiData(req.body || {});
     if (hasil.error) return res.status(400).json({ error: hasil.error });
@@ -432,7 +432,7 @@ app.post('/api/surat', async (req, res) => {
   }
 });
 
-app.put('/api/surat/:nomor', async (req, res) => {
+app.put('/api/surat/:nomor', requireAuth(), async (req, res) => {
   try {
     const hasil = validasiData(req.body || {});
     if (hasil.error) return res.status(400).json({ error: hasil.error });
@@ -462,7 +462,7 @@ app.put('/api/surat/:nomor', async (req, res) => {
   }
 });
 
-app.delete('/api/surat/:nomor', async (req, res) => {
+app.delete('/api/surat/:nomor', requireAuth(), async (req, res) => {
   try {
     const nomor = String(req.params.nomor);
     const dihapus = await storage.hapusRiwayat(nomor);

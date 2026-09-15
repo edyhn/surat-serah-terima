@@ -30,7 +30,9 @@ function nyalakan() {
     const awal = Date.now();
     const cek = setInterval(async () => {
       try {
-        const r = await fetch(`${BASE}/api/riwayat`);
+        const r = await fetch(`${BASE}/api/riwayat`, {
+          headers: { 'Authorization': 'Bearer test:admin:admin-user-legacy' },
+        });
         if (r.ok) {
           clearInterval(cek);
           resolve(child);
@@ -165,7 +167,7 @@ test('api: ttd parsial dari penerima + QR + status di riwayat', async () => {
     assert.ok(ttd.data.ttd && ttd.data.ttd.menerima, 'ttd menerima harus tersimpan');
     assert.equal(ttd.data.ttd.menyerahkan, undefined, 'ttd menyerahkan belum ada');
 
-    const satu = await json('GET', `/api/surat/${encodeURIComponent(nomor)}`);
+     const satu = await json('GET', `/api/surat/${encodeURIComponent(nomor)}`);
     assert.equal(satu.status, 200);
     assert.ok(satu.data.ttd.menerima, 'GET surat tunggal memuat ttd');
 
@@ -174,11 +176,15 @@ test('api: ttd parsial dari penerima + QR + status di riwayat', async () => {
     assert.ok(r.ttd.menerima === true, 'status ttd menerima true di riwayat');
     assert.ok(r.ttd.menyerahkan === false, 'status ttd menyerahkan masih false');
 
-    const qr = await fetch(`${BASE}/api/surat/${encodeURIComponent(nomor)}/qr`);
+    const qr = await fetch(`${BASE}/api/surat/${encodeURIComponent(nomor)}/qr`, {
+      headers: { 'Authorization': DEFAULT_AUTH },
+    });
     assert.equal(qr.status, 200);
     assert.ok((qr.headers.get('content-type') || '').includes('image/png'), 'QR berupa PNG');
 
-    const qrHrd = await fetch(`${BASE}/api/surat/${encodeURIComponent(nomor)}/qr?pihak=hrd`);
+    const qrHrd = await fetch(`${BASE}/api/surat/${encodeURIComponent(nomor)}/qr?pihak=hrd`, {
+      headers: { 'Authorization': DEFAULT_AUTH },
+    });
     assert.equal(qrHrd.status, 200);
     assert.ok((qrHrd.headers.get('content-type') || '').includes('image/png'), 'QR per pihak berupa PNG');
   } finally {
