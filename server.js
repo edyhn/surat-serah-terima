@@ -525,6 +525,7 @@ app.post('/api/surat', requireAuth(), async (req, res) => {
 
 app.put('/api/surat/:nomor', requireAuth(), async (req, res) => {
   try {
+    if (req.user.role === 'viewer') return res.status(403).json({ error: 'Viewer tidak bisa edit surat.' });
     const hasil = validasiData(req.body || {});
     if (hasil.error) return res.status(400).json({ error: hasil.error });
 

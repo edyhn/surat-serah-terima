@@ -17,6 +17,8 @@ function nyalakan() {
       env: {
         ...process.env,
         PORT: String(PORT),
+        NODE_ENV: 'test',
+        TEST_AUTH: 'true',
         EXCEL_FILE: path.join(tmp, 'riwayat.xlsx'),
         PDF_DIR: path.join(tmp, 'pdf'),
         NOMOR_FILE: path.join(tmp, 'nomor.json'),
@@ -28,7 +30,7 @@ function nyalakan() {
     const awal = Date.now();
     const cek = setInterval(async () => {
       try {
-        const r = await fetch(`${BASE}/api/riwayat`);
+        const r = await fetch(`${BASE}/api/config`);
         if (r.ok) {
           clearInterval(cek);
           resolve(child);
@@ -46,9 +48,10 @@ function nyalakan() {
   });
 }
 
-async function json(method, url, body) {
+async function json(method, url, body, auth = 'Bearer test:admin:admin-user-001:server:active') {
   const headers = {};
   if (body) headers['Content-Type'] = 'application/json';
+  if (auth) headers['Authorization'] = auth;
   const res = await fetch(BASE + url, { method, headers, body: body ? JSON.stringify(body) : undefined });
   return { status: res.status, data: await res.json().catch(() => ({})) };
 }

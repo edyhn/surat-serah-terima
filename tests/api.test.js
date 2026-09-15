@@ -18,6 +18,7 @@ function nyalakan() {
       env: {
         ...process.env,
         PORT: String(PORT),
+        NODE_ENV: 'test',
         TEST_AUTH: 'true',
         EXCEL_FILE: path.join(tmp, 'riwayat.xlsx'),
         PDF_DIR: path.join(tmp, 'pdf'),
@@ -31,7 +32,7 @@ function nyalakan() {
     const cek = setInterval(async () => {
       try {
         const r = await fetch(`${BASE}/api/riwayat`, {
-          headers: { 'Authorization': 'Bearer test:admin:admin-user-legacy' },
+          headers: { 'Authorization': 'Bearer test:admin:admin-user-legacy:server:active' },
         });
         if (r.ok) {
           clearInterval(cek);
@@ -50,7 +51,7 @@ function nyalakan() {
   });
 }
 
-const DEFAULT_AUTH = 'Bearer test:admin:admin-user-legacy:active';
+const DEFAULT_AUTH = 'Bearer test:admin:admin-user-legacy:server:active';
 async function json(method, url, body, auth = DEFAULT_AUTH) {
   const headers = {};
   if (body) headers['Content-Type'] = 'application/json';
