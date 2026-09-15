@@ -134,6 +134,38 @@ test('rbac: ID path tampering — nomor surat tidak bisa diedit tanpa aset acces
   } finally { child.kill(); }
 });
 
+test('rbac: viewer tidak bisa membuat surat yang menyentuh aset milik PIC (HIGH-1)', async () => {
+  const { child, port } = await nyalakan(nextPort());
+  try {
+    const aA = await json('POST', '/api/aset', { nama: 'Laptop A', kategori: 'IT' }, PIC_A, port);
+    assert.equal(aA.status, 200);
+    const kodeA = aA.data.kode;
+
+    const payload = {
+      nama: 'Edy', departemen: 'HCM', penerima: 'Isti', departemenPenerima: 'FAT',
+      keterangan: 'Coba IDOR', kategori: 'penyerahan', aset: [kodeA]
+    };
+
+    const suratByViewer = await json('POST', '/api/surat', payload, VIEWER, port);
+    assert.equal(suratByViewer.status, 403, 'viewer tidak bisa membuat surat dengan aset orang lain');
+
+    const asetSetelah = await json('GET', `/api/aset/${encodeURIComponent(kodeA)}`, null, PIC_A, port);
+    assert.equal(asetSetelah.status, 200);
+    assert.equal(asetSetelah.data.status, 'tersedia', 'status aset PIC_A tidak boleh berubah oleh viewer');
+  } finally { child.kill(); }
+});
+
+test('rbac: viewer tidak bisa membuat surat tanpa aset', async () => {
+  const { child, port } = await nyalakan(nextPort());
+  try {
+    const r = await json('POST', '/api/surat', {
+      nama: 'Edy', departemen: 'HCM', penerima: 'Isti', departemenPenerima: 'FAT',
+      keterangan: 'Surat tanpa aset', kategori: 'penyerahan'
+    }, VIEWER, port);
+    assert.equal(r.status, 403, 'viewer tidak bisa membuat surat sama sekali');
+  } finally { child.kill(); }
+});
+
 test('rbac: nested history — riwayat aset terbatas scope', async () => {
   const { child, port } = await nyalakan(nextPort());
   try {

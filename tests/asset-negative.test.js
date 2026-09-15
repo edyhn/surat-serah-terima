@@ -194,4 +194,66 @@ describe('ISSUE-42 negative tests', () => {
       assert.ok(r2.data.kode.startsWith('INV/IT-'));
     } finally { child.kill(); }
   });
+
+  test('create menolak unknown field (strict DTO)', async () => {
+    const child = await nyalakan();
+    try {
+      const r = await json('POST', '/api/aset', { nama: 'A', kategori: 'IT', confidential: true });
+      assert.equal(r.status, 400);
+      assert.ok(String(r.data.error).includes('confidential'));
+    } finally { child.kill(); }
+  });
+
+  test('create menolak owner_id/pic_ids privilege field', async () => {
+    const child = await nyalakan();
+    try {
+      const r1 = await json('POST', '/api/aset', { nama: 'A', kategori: 'IT', owner_id: 'hacked-user' });
+      assert.equal(r1.status, 400);
+      assert.ok(String(r1.data.error).includes('owner_id'));
+      const r2 = await json('POST', '/api/aset', { nama: 'B', kategori: 'IT', pic_ids: ['hacked'] });
+      assert.equal(r2.status, 400);
+      assert.ok(String(r2.data.error).includes('pic_ids'));
+    } finally { child.kill(); }
+  });
+
+  test('update menolak unknown field (strict DTO)', async () => {
+    const child = await nyalakan();
+    try {
+      const buat = await json('POST', '/api/aset', { nama: 'A', kategori: 'IT' });
+      assert.equal(buat.status, 200);
+      const kode = buat.data.kode;
+      const r = await json('PUT', `/api/aset/${encodeURIComponent(kode)}`, { nama: 'B', hacking: 1 });
+      assert.equal(r.status, 400);
+      assert.ok(String(r.data.error).includes('hacking'));
+    } finally { child.kill(); }
+  });
+
+  test('update menolak pic_ids privilege field', async () => {
+    const child = await nyalakan();
+    try {
+      const buat = await json('POST', '/api/aset', { nama: 'A', kategori: 'IT' });
+      assert.equal(buat.status, 200);
+      const kode = buat.data.kode;
+      const r = await json('PUT', `/api/aset/${encodeURIComponent(kode)}`, { pic_ids: ['hacked'] });
+      assert.equal(r.status, 400);
+      assert.ok(String(r.data.error).includes('pic_ids'));
+    } finally { child.kill(); }
+  });
+
+  test('lifecycle berpengaruh ke status tersimpan (persist)', async () => {
+    const child = await nyalakan();
+    try {
+      const buat = await json('POST', '/api/aset', { nama: 'A', kategori: 'IT' });
+      assert.equal(buat.status, 200);
+      const kode = buat.data.kode;
+      assert.equal(buat.data.status, 'tersedia');
+
+      const r = await json('POST', `/api/aset/${encodeURIComponent(kode)}/lifecycle`, { status: 'dipakai' });
+      assert.equal(r.status, 200);
+
+      const ambil = await json('GET', `/api/aset/${encodeURIComponent(kode)}`);
+      assert.equal(ambil.status, 200);
+      assert.equal(ambil.data.status, 'dipakai', 'status lifecycle harus tersimpan di storage');
+    } finally { child.kill(); }
+  });
 });
