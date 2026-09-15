@@ -9,6 +9,16 @@ const QRCode = require('qrcode');
 const { requireAuth, authenticate } = require('./lib/auth');
 const { isAllowedRole, canAccessObject, filterByScope } = require('./lib/aset-rbac');
 
+async function requireAsetScope(req, res, next, operation) {
+  if (!req.user) return res.status(401).json({ error: 'Autentikasi diperlukan.' });
+  if (!isAllowedRole(req.user.role, operation)) return res.status(403).json({ error: 'Akses ditolak.' });
+  next();
+}
+
+function buildAsetPredicate(user) {
+  return (aset) => canAccessObject(user, aset);
+}
+
 const app = express();
 
 // Rate limit sederhana in-memory: 120 req / menit per IP untuk /api
@@ -270,7 +280,7 @@ app.get('/api/riwayat/download', async (_req, res) => {
   }
 });
 
-app.get('/api/surat/:nomor/pdf', async (req, res) => {
+app.get('/api/surat/:nomor/pdf', requireAuth(), async (req, res) => {
   try {
     const namaFile = String(req.params.nomor).replace(/[/\\]/g, '-') + '.pdf';
     const buffer = await storage.ambilPdf(namaFile);
@@ -283,7 +293,7 @@ app.get('/api/surat/:nomor/pdf', async (req, res) => {
   }
 });
 
-app.get('/api/surat/:nomor/qr', async (req, res) => {
+app.get('/api/surat/:nomor/qr', requireAuth(), async (req, res) => {
   try {
     const pihak = PIHAK_TTD.includes(req.query.pihak) ? String(req.query.pihak) : null;
     const png = await QRCode.toBuffer(ttdUrl(req, req.params.nomor, pihak), {
@@ -299,7 +309,7 @@ app.get('/api/surat/:nomor/qr', async (req, res) => {
   }
 });
 
-app.post('/api/surat/:nomor/ttd', async (req, res) => {
+app.post('/api/surat/:nomor/ttd', requireAuth(), async (req, res) => {
   try {
     const surat = await cariSurat(req.params.nomor);
     if (!surat) return res.status(404).json({ error: 'Surat tidak ditemukan.' });
@@ -329,7 +339,7 @@ app.post('/api/surat/:nomor/ttd', async (req, res) => {
   }
 });
 
-app.get('/api/surat/:nomor', async (req, res) => {
+app.get('/api/surat/:nomor', requireAuth(), async (req, res) => {
   try {
     const surat = await cariSurat(req.params.nomor);
     if (!surat) return res.status(404).json({ error: 'Surat tidak ditemukan.' });
@@ -405,14 +415,29 @@ app.get('/api/riwayat', async (_req, res) => {
   }
 });
 
-app.post('/api/surat', async (req, res) => {
+async function authorizeAsetMutation(user, kodeAset) {
+  if (!kodeAset || kodeAset.length === 0) return null;
+  const asetMap = new Map();
+  await Promise.all(kodeAset.map(async (k) => {
+    const a = await storage.aset.ambilAset(k);
+    asetMap.set(String(k), a);
+  }));
+  for (const k of kodeAset) {
+    const a = asetMap.get(String(k));
+    if (!a) return `Aset tidak ditemukan: ${k}`;
+    if (!canAccessObject(user, a)) return `Akses ditolak ke aset: ${k}`;
+  }
+  return null;
+}
+
+app.post('/api/surat', requireAuth(), async (req, res) => {
   try {
     const hasil = validasiData(req.body || {});
     if (hasil.error) return res.status(400).json({ error: hasil.error });
 
     const kodeAset = hasil.data.aset || [];
-    const errAset = await validasiKodeAsetAda(kodeAset);
-    if (errAset) return res.status(400).json({ error: errAset });
+    const errAset = await authorizeAsetMutation(req.user, kodeAset);
+    if (errAset) return res.status(403).json({ error: errAset });
     const surat = await buatSurat(hasil.data);
 
     if (kodeAset.length) {
@@ -432,7 +457,7 @@ app.post('/api/surat', async (req, res) => {
   }
 });
 
-app.put('/api/surat/:nomor', async (req, res) => {
+app.put('/api/surat/:nomor', requireAuth(), async (req, res) => {
   try {
     const hasil = validasiData(req.body || {});
     if (hasil.error) return res.status(400).json({ error: hasil.error });
@@ -441,9 +466,11 @@ app.put('/api/surat/:nomor', async (req, res) => {
     if (!lama) return res.status(404).json({ error: 'Nomor surat tidak ditemukan.' });
 
     const kodeAset = hasil.data.aset || [];
-    const errAset = await validasiKodeAsetAda(kodeAset);
-    if (errAset) return res.status(400).json({ error: errAset });
     const kodeAsetLama = (await storage.aset.kodeAsetPerNomor())[lama.nomor] || [];
+    const semuaKode = [...new Set([...kodeAset, ...kodeAsetLama])];
+    const errAset = await authorizeAsetMutation(req.user, semuaKode);
+    if (errAset) return res.status(403).json({ error: errAset });
+
     const surat = { ...lama, ...hasil.data };
     await storage.updateRiwayat(lama.nomor, surat);
 
@@ -462,9 +489,13 @@ app.put('/api/surat/:nomor', async (req, res) => {
   }
 });
 
-app.delete('/api/surat/:nomor', async (req, res) => {
+app.delete('/api/surat/:nomor', requireAuth(), async (req, res) => {
   try {
     const nomor = String(req.params.nomor);
+    const kodeAset = (await storage.aset.kodeAsetPerNomor())[nomor] || [];
+    const errAset = await authorizeAsetMutation(req.user, kodeAset);
+    if (errAset) return res.status(403).json({ error: errAset });
+
     const dihapus = await storage.hapusRiwayat(nomor);
     if (!dihapus) return res.status(404).json({ error: 'Nomor surat tidak ditemukan.' });
 
@@ -512,9 +543,15 @@ app.post('/api/aset', requireAuth(), async (req, res) => {
     delete body.id;
     delete body.created_at;
     delete body.updated_at;
+    delete body.owner_id;
+    delete body.pic_ids;
     const hasil = validasiAset(body);
     if (hasil.error) return res.status(400).json({ error: hasil.error });
     hasil.data.kode = await autoKodeAset(hasil.data.kategori);
+    if (req.user.role === 'pic') {
+      hasil.data.owner_id = req.user.userId;
+      hasil.data.pic_ids = [req.user.userId];
+    }
     const aset = await storage.aset.tambahAset(hasil.data);
     res.json(aset);
   } catch (err) {
@@ -526,11 +563,22 @@ app.post('/api/aset', requireAuth(), async (req, res) => {
   }
 });
 
+app.get('/api/aset/:kode', requireAuth(), async (req, res) => {
+  try {
+    const aset = await storage.aset.ambilAset(req.params.kode);
+    if (!aset) return res.status(404).json({ error: 'Aset tidak ditemukan.' });
+    if (!canAccessObject(req.user, aset)) return res.status(403).json({ error: 'Akses ditolak ke aset ini.' });
+    res.json(aset);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Gagal membaca data aset.' });
+  }
+});
+
 app.put('/api/aset/:kode', requireAuth(), async (req, res) => {
   try {
     if (!isAllowedRole(req.user.role, 'update')) return res.status(403).json({ error: 'Tidak berwenang mengubah aset.' });
-    const daftar = await storage.aset.daftarAset();
-    const aset = daftar.find((a) => String(a.kode) === String(req.params.kode));
+    const aset = await storage.aset.ambilAset(req.params.kode);
     if (!canAccessObject(req.user, aset)) return res.status(403).json({ error: 'Akses ditolak ke aset ini.' });
     const body = req.body || {};
     delete body.kode;
@@ -538,13 +586,19 @@ app.put('/api/aset/:kode', requireAuth(), async (req, res) => {
     delete body.created_at;
     delete body.updated_at;
     delete body.status;
+    delete body.owner_id;
+    delete body.pic_ids;
     const hasil = validasiAset(body);
     if (hasil.error) return res.status(400).json({ error: hasil.error });
-    const updated = await storage.aset.updateAset(req.params.kode, hasil.data);
+    const predicate = buildAsetPredicate(req.user);
+    const updated = await storage.aset.updateAset(req.params.kode, hasil.data, predicate);
     if (!updated) return res.status(404).json({ error: 'Aset tidak ditemukan.' });
     res.json(updated);
   } catch (err) {
     console.error(err);
+    if (err && err.code === 'SCOPE') {
+      return res.status(403).json({ error: 'Akses ditolak ke aset ini.' });
+    }
     res.status(500).json({ error: 'Gagal mengubah aset.' });
   }
 });
@@ -552,22 +606,24 @@ app.put('/api/aset/:kode', requireAuth(), async (req, res) => {
 app.delete('/api/aset/:kode', requireAuth(), async (req, res) => {
   try {
     if (!isAllowedRole(req.user.role, 'delete')) return res.status(403).json({ error: 'Tidak berwenang menghapus aset.' });
-    const daftar = await storage.aset.daftarAset();
-    const aset = daftar.find((a) => String(a.kode) === String(req.params.kode));
+    const aset = await storage.aset.ambilAset(req.params.kode);
     if (!canAccessObject(req.user, aset)) return res.status(403).json({ error: 'Akses ditolak ke aset ini.' });
-    const ok = await storage.aset.hapusAset(req.params.kode);
+    const predicate = buildAsetPredicate(req.user);
+    const ok = await storage.aset.hapusAset(req.params.kode, predicate);
     if (!ok) return res.status(404).json({ error: 'Aset tidak ditemukan.' });
     res.json({ ok: true });
   } catch (err) {
     console.error(err);
+    if (err && err.code === 'SCOPE') {
+      return res.status(403).json({ error: 'Akses ditolak ke aset ini.' });
+    }
     res.status(500).json({ error: 'Gagal menghapus aset.' });
   }
 });
 
 app.get('/api/aset/:kode/riwayat', requireAuth(), async (req, res) => {
   try {
-    const daftar = await storage.aset.daftarAset();
-    const aset = daftar.find((a) => String(a.kode) === String(req.params.kode));
+    const aset = await storage.aset.ambilAset(req.params.kode);
     if (!canAccessObject(req.user, aset)) return res.status(403).json({ error: 'Akses ditolak ke aset ini.' });
     const hist = await storage.aset.riwayatAset(req.params.kode);
     res.json(hist);

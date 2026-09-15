@@ -48,7 +48,7 @@ function nyalakan() {
   });
 }
 
-const DEFAULT_AUTH = 'Bearer test:admin:admin-user-legacy';
+const DEFAULT_AUTH = 'Bearer test:admin:admin-user-legacy:active';
 async function json(method, url, body, auth = DEFAULT_AUTH) {
   const headers = {};
   if (body) headers['Content-Type'] = 'application/json';

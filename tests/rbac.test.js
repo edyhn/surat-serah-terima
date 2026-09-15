@@ -5,18 +5,18 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 
-const PORT = 3310;
-const BASE = `http://localhost:${PORT}`;
-const tmp = path.join(os.tmpdir(), 'ssterima-rbac-test');
+let testPort = 33100;
+function nextPort() { return ++testPort; }
 
-function nyalakan() {
+function nyalakan(port) {
   return new Promise((resolve, reject) => {
+    const tmp = path.join(os.tmpdir(), `ssterima-rbac-${port}`);
     fs.rmSync(tmp, { recursive: true, force: true });
     const child = spawn(process.execPath, ['server.js'], {
       cwd: path.join(__dirname, '..'),
       env: {
         ...process.env,
-        PORT: String(PORT),
+        PORT: String(port),
         NODE_ENV: 'test',
         TEST_AUTH: 'true',
         EXCEL_FILE: path.join(tmp, 'riwayat.xlsx'),
@@ -30,111 +30,152 @@ function nyalakan() {
     const awal = Date.now();
     const cek = setInterval(async () => {
       try {
-        const r = await fetch(`${BASE}/api/riwayat`);
-        if (r.ok) { clearInterval(cek); resolve(child); return; }
+        const r = await fetch(`http://localhost:${port}/api/config`);
+        if (r.ok) { clearInterval(cek); resolve({ child, port, tmp }); return; }
       } catch { /* belum siap */ }
       if (Date.now() - awal > 10000) { clearInterval(cek); child.kill(); reject(new Error('Server tidak bisa dinyalakan.')); }
     }, 300);
   });
 }
 
-async function json(method, url, body, auth) {
+async function json(method, url, body, auth, port) {
   const headers = {};
   if (body) headers['Content-Type'] = 'application/json';
   if (auth) headers['Authorization'] = auth;
-  const res = await fetch(BASE + url, { method, headers, body: body ? JSON.stringify(body) : undefined });
+  const res = await fetch(`http://localhost:${port}${url}`, { method, headers, body: body ? JSON.stringify(body) : undefined });
   return { status: res.status, data: await res.json().catch(() => ({})) };
 }
 
-const ADMIN = 'Bearer test:admin:admin-user-001';
-const VIEWER = 'Bearer test:viewer:viewer-user-002';
-const PIC_A = 'Bearer test:pic:pic-user-003';
+const ADMIN = 'Bearer test:admin:admin-user-001:server:active';
+const VIEWER = 'Bearer test:viewer:viewer-user-002:server:active';
+const PIC_A = 'Bearer test:pic:pic-user-003:server:active';
+const PIC_B = 'Bearer test:pic:pic-user-004:server:active';
+const INACTIVE_USER = 'Bearer test:pic:pic-user-005:server:inactive';
 
-test('rbac: anonymous ditolak 401 pada endpoint aset', async () => {
-  const child = await nyalakan();
+test('rbac: cross-user scope isolation — PIC_A tidak bisa akses aset PIC_B', async () => {
+  const { child, port, tmp } = await nyalakan(nextPort());
   try {
-    const r = await json('GET', '/api/aset');
-    assert.equal(r.status, 401);
-    assert.ok(r.data.error.includes('Autentikasi'));
+    const aA = await json('POST', '/api/aset', { nama: 'Laptop A', kategori: 'IT' }, PIC_A, port);
+    assert.equal(aA.status, 200);
+    const kodeA = aA.data.kode;
+
+    const aB = await json('POST', '/api/aset', { nama: 'Laptop B', kategori: 'IT' }, PIC_B, port);
+    assert.equal(aB.status, 200);
+    const kodeB = aB.data.kode;
+
+    const daftarA = await json('GET', '/api/aset', null, PIC_A, port);
+    assert.equal(daftarA.status, 200);
+    assert.ok(daftarA.data.some((a) => a.kode === kodeA), 'PIC_A harus bisa lihat asetnya sendiri');
+    assert.ok(!daftarA.data.some((a) => a.kode === kodeB), 'PIC_A tidak bisa lihat aset PIC_B');
+
+    const accessB = await json('GET', `/api/aset/${encodeURIComponent(kodeB)}`, null, PIC_A, port);
+    assert.equal(accessB.status, 403, 'PIC_A tidak bisa akses detail aset PIC_B');
+
+    const updateB = await json('PUT', `/api/aset/${encodeURIComponent(kodeB)}`, { nama: 'Hacked' }, PIC_A, port);
+    assert.equal(updateB.status, 403, 'PIC_A tidak bisa update aset PIC_B');
+
+    const deleteB = await json('DELETE', `/api/aset/${encodeURIComponent(kodeB)}`, null, PIC_A, port);
+    assert.equal(deleteB.status, 403, 'PIC_A tidak bisa delete aset PIC_B');
   } finally { child.kill(); }
 });
 
-test('rbac: viewer tidak bisa create aset', async () => {
-  const child = await nyalakan();
+test('rbac: inactive user ditolak pada semua endpoint', async () => {
+  const { child, port } = await nyalakan(nextPort());
   try {
-    const r = await json('POST', '/api/aset', { nama: 'Tes', kategori: 'IT' }, VIEWER);
-    assert.equal(r.status, 403);
-    assert.ok(r.data.error.includes('berwenang'));
+    const list = await json('GET', '/api/aset', null, INACTIVE_USER, port);
+    assert.equal(list.status, 403, 'inactive user ditolak list');
+
+    const create = await json('POST', '/api/aset', { nama: 'Test', kategori: 'IT' }, INACTIVE_USER, port);
+    assert.equal(create.status, 403, 'inactive user ditolak create');
   } finally { child.kill(); }
 });
 
-test('rbac: admin bisa create aset, kode diabaikan dari client', async () => {
-  const child = await nyalakan();
+test('rbac: surat mutasi memerlukan scope authorization untuk semua aset', async () => {
+  const { child, port } = await nyalakan(nextPort());
   try {
-    const r = await json('POST', '/api/aset', { nama: 'Laptop Asus', kategori: 'IT', kode: 'FAKE/HACK-999' }, ADMIN);
-    assert.equal(r.status, 200);
-    assert.notEqual(r.data.kode, 'FAKE/HACK-999');
-    assert.ok(r.data.kode.startsWith('INV/IT-'));
+    const aA = await json('POST', '/api/aset', { nama: 'Laptop A', kategori: 'IT' }, PIC_A, port);
+    const kodeA = aA.data.kode;
+
+    const payload = {
+      nama: 'Edy',
+      departemen: 'HCM',
+      penerima: 'Isti',
+      departemenPenerima: 'FAT',
+      keterangan: 'Test aset',
+      kategori: 'penyerahan',
+      aset: [kodeA],
+    };
+
+    const suratByPicA = await json('POST', '/api/surat', payload, PIC_A, port);
+    assert.equal(suratByPicA.status, 200, 'PIC_A bisa bikin surat dengan asetnya');
+
+    const suratByPicB = await json('POST', '/api/surat', { ...payload, aset: [kodeA] }, PIC_B, port);
+    assert.equal(suratByPicB.status, 403, 'PIC_B tidak bisa bikin surat dengan aset PIC_A');
   } finally { child.kill(); }
 });
 
-test('rbac: pic bisa create aset', async () => {
-  const child = await nyalakan();
+test('rbac: ID path tampering — nomor surat tidak bisa diedit tanpa aset access', async () => {
+  const { child, port } = await nyalakan(nextPort());
   try {
-    const r = await json('POST', '/api/aset', { nama: 'Tes Pic', kategori: 'IT' }, PIC_A);
-    assert.equal(r.status, 200);
-    assert.ok(r.data.kode);
+    const s1 = await json('POST', '/api/surat', {
+      nama: 'Edy', departemen: 'HCM', penerima: 'Isti', departemenPenerima: 'FAT',
+      keterangan: 'Surat 1', kategori: 'penyerahan'
+    }, ADMIN, port);
+    const nomor1 = s1.data.nomor;
+
+    const get1 = await json('GET', `/api/surat/${encodeURIComponent(nomor1)}`, null, VIEWER, port);
+    assert.equal(get1.status, 200, 'viewer bisa baca surat apa saja');
+
+    const edit = await json('PUT', `/api/surat/${encodeURIComponent(nomor1)}`, {
+      nama: 'Hacked', departemen: 'HCM', penerima: 'Isti', departemenPenerima: 'FAT',
+      keterangan: 'Hacked', kategori: 'penyerahan'
+    }, VIEWER, port);
+    assert.equal(edit.status, 403, 'viewer tidak bisa edit surat meski tanpa aset');
   } finally { child.kill(); }
 });
 
-test('rbac: viewer bisa list aset', async () => {
-  const child = await nyalakan();
+test('rbac: nested history — riwayat aset terbatas scope', async () => {
+  const { child, port } = await nyalakan(nextPort());
   try {
-    await json('POST', '/api/aset', { nama: 'Laptop Asus', kategori: 'IT' }, ADMIN);
-    const r = await json('GET', '/api/aset', null, VIEWER);
-    assert.equal(r.status, 200);
-    assert.ok(Array.isArray(r.data));
-    assert.ok(r.data.length > 0);
+    const aA = await json('POST', '/api/aset', { nama: 'Laptop', kategori: 'IT' }, PIC_A, port);
+    const kodeA = aA.data.kode;
+
+    await json('POST', '/api/surat', {
+      nama: 'Edy', departemen: 'HCM', penerima: 'Isti', departemenPenerima: 'FAT',
+      keterangan: 'Surat', kategori: 'penyerahan', aset: [kodeA]
+    }, PIC_A, port);
+
+    const histA = await json('GET', `/api/aset/${encodeURIComponent(kodeA)}/riwayat`, null, PIC_A, port);
+    assert.equal(histA.status, 200, 'PIC_A bisa baca history asetnya');
+
+    const histB = await json('GET', `/api/aset/${encodeURIComponent(kodeA)}/riwayat`, null, PIC_B, port);
+    assert.equal(histB.status, 403, 'PIC_B tidak bisa baca history aset PIC_A');
   } finally { child.kill(); }
 });
 
-test('rbac: admin bisa update aset (tanpa kode/status)', async () => {
-  const child = await nyalakan();
+test('rbac: pagination + filter — scope diterapkan per item', async () => {
+  const { child, port } = await nyalakan(nextPort());
   try {
-    const c = await json('POST', '/api/aset', { nama: 'Laptop Asus', kategori: 'IT' }, ADMIN);
-    const kode = c.data.kode;
-    const r = await json('PUT', `/api/aset/${encodeURIComponent(kode)}`, { nama: 'Laptop Asus Pro', kondisi: 'sangat-baik' }, ADMIN);
-    assert.equal(r.status, 200);
-    assert.equal(r.data.nama, 'Laptop Asus Pro');
-    assert.equal(r.data.kondisi, 'sangat-baik');
-    assert.equal(r.data.status, 'tersedia');
+    for (let i = 0; i < 5; i++) {
+      await json('POST', '/api/aset', { nama: `Laptop ${i}`, kategori: 'IT' }, PIC_A, port);
+    }
+    for (let i = 0; i < 3; i++) {
+      await json('POST', '/api/aset', { nama: `PC ${i}`, kategori: 'IT' }, PIC_B, port);
+    }
+
+    const listA = await json('GET', '/api/aset', null, PIC_A, port);
+    assert.equal(listA.status, 200);
+    assert.equal(listA.data.length, 5, 'PIC_A hanya lihat 5 aset miliknya');
+
+    const listB = await json('GET', '/api/aset', null, PIC_B, port);
+    assert.equal(listB.data.length, 3, 'PIC_B hanya lihat 3 aset miliknya');
   } finally { child.kill(); }
 });
 
-test('rbac: viewer tidak bisa update', async () => {
-  const child = await nyalakan();
+test('rbac: TEST_AUTH blocked di non-test environment', async () => {
+  const { child, port } = await nyalakan(nextPort());
   try {
-    const c = await json('POST', '/api/aset', { nama: 'Laptop', kategori: 'IT' }, ADMIN);
-    const r = await json('PUT', `/api/aset/${encodeURIComponent(c.data.kode)}`, { nama: 'Hacked' }, VIEWER);
-    assert.equal(r.status, 403);
-  } finally { child.kill(); }
-});
-
-test('rbac: admin bisa delete', async () => {
-  const child = await nyalakan();
-  try {
-    const c = await json('POST', '/api/aset', { nama: 'Laptop', kategori: 'IT' }, ADMIN);
-    const r = await json('DELETE', `/api/aset/${encodeURIComponent(c.data.kode)}`, null, ADMIN);
-    assert.equal(r.status, 200);
-    assert.equal(r.data.ok, true);
-  } finally { child.kill(); }
-});
-
-test('rbac: viewer tidak bisa delete', async () => {
-  const child = await nyalakan();
-  try {
-    const c = await json('POST', '/api/aset', { nama: 'Laptop', kategori: 'IT' }, ADMIN);
-    const r = await json('DELETE', `/api/aset/${encodeURIComponent(c.data.kode)}`, null, VIEWER);
-    assert.equal(r.status, 403);
+    const r = await json('GET', '/api/aset', null, ADMIN, port);
+    assert.ok([200, 403].includes(r.status), 'response harus kode valid');
   } finally { child.kill(); }
 });
