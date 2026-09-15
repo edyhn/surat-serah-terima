@@ -241,15 +241,14 @@ test('api: validasi aset + status konsisten saat edit + nilai aset di GET', asyn
   const child = await nyalakan();
   try {
     const asetPayload = {
-      kode: 'INV/TEST-001',
       nama: 'Laptop Test',
-      kategori: 'Laptop',
+      kategori: 'TEST',
       nilai: 5000000,
       kondisi: 'baru',
-      status: 'tersedia',
     };
     const buatAset = await json('POST', '/api/aset', asetPayload);
     assert.equal(buatAset.status, 200);
+    const KODE = buatAset.data.kode;
 
     const payload = {
       nama: 'Edy',
@@ -258,18 +257,18 @@ test('api: validasi aset + status konsisten saat edit + nilai aset di GET', asyn
       departemenPenerima: 'FAT',
       keterangan: 'Laptop',
       kategori: 'penyerahan',
-      aset: ['INV/TEST-001'],
+      aset: [KODE],
     };
     const buat = await json('POST', '/api/surat', payload);
     assert.equal(buat.status, 200);
-    assert.equal(buat.data.aset[0].kode, 'INV/TEST-001');
+    assert.equal(buat.data.aset[0].kode, KODE);
     assert.equal(buat.data.aset[0].nilai, 5000000, 'GET/POST surat memuat nilai aset');
 
     let daftar = await json('GET', '/api/aset');
-    let a = daftar.data.find((x) => x.kode === 'INV/TEST-001');
+    let a = daftar.data.find((x) => x.kode === KODE);
     assert.equal(a.status, 'dipakai', 'aset penyerahan otomatis jadi dipakai');
 
-    const objAset = await json('POST', '/api/surat', { ...payload, nama: 'Budi', aset: [{ kode: 'INV/TEST-001' }] });
+    const objAset = await json('POST', '/api/surat', { ...payload, nama: 'Budi', aset: [{ kode: KODE }] });
     assert.equal(objAset.status, 400, 'aset bertipe objek harus ditolak');
 
     const edit = await json('PUT', `/api/surat/${encodeURIComponent(buat.data.nomor)}`, {
@@ -279,7 +278,7 @@ test('api: validasi aset + status konsisten saat edit + nilai aset di GET', asyn
     assert.equal(edit.status, 200);
 
     daftar = await json('GET', '/api/aset');
-    a = daftar.data.find((x) => x.kode === 'INV/TEST-001');
+    a = daftar.data.find((x) => x.kode === KODE);
     assert.equal(a.status, 'tersedia', 'aset yang dilepas dari surat kembali tersedia');
   } finally {
     child.kill();
