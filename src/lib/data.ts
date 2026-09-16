@@ -1,7 +1,7 @@
 import { createAdminClient, PDF_BUCKET } from "@/lib/supabase-admin";
 import type { Aset, PihakTtd, Surat, SuratInput } from "@/types";
 
-interface SuratRow { nomor: string; tanggal: string; tanggal_singkat: string; kategori: "penyerahan" | "pengembalian"; nama: string; departemen: string; penerima: string; departemen_penerima: string; keterangan: string; nama_hrd: string | null }
+interface SuratRow { nomor: string; tanggal: string; tanggal_singkat: string; kategori: "pengadaan" | "penyerahan" | "pengembalian"; nama: string; departemen: string; penerima: string; departemen_penerima: string; keterangan: string; nama_hrd: string | null }
 interface LinkRow { nomor_surat: string; kode_aset: string }
 const PIHAK: PihakTtd[] = ["menyerahkan", "menerima", "hrd"];
 
@@ -116,7 +116,7 @@ export async function removeFiles(paths: string[]) {
 
 export function parseTtd(input?: SuratInput["ttd"]): Partial<Record<PihakTtd, Buffer>> {
   const result: Partial<Record<PihakTtd, Buffer>> = {};
-  for (const pihak of PIHAK) { const value = input?.[pihak]; if (value) { const buffer = Buffer.from(value.slice(value.indexOf(",") + 1), "base64"); const png = buffer.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10])); if (!png) throw new Error("Isi tanda tangan bukan PNG yang valid."); if (buffer.length > 0 && buffer.length <= 1_048_576) result[pihak] = buffer; } }
+  for (const pihak of PIHAK) { const value = input?.[pihak]; if (value) { const buffer = Buffer.from(value.slice(value.indexOf(",") + 1), "base64"); const png = buffer.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10])); if (!png) throw new Error("Isi tanda tangan bukan PNG yang valid."); if (buffer.length <= 0) throw new Error("Isi tanda tangan kosong."); if (buffer.length > 1_048_576) throw new Error("Ukuran tanda tangan melebihi batas 1MB."); result[pihak] = buffer; } }
   return result;
 }
 

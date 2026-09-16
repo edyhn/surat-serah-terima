@@ -56,12 +56,20 @@ export async function editSurat(nomor: string, input: SuratInput) {
   await updateSurat(nomor, surat);
   await setLinks(nomor, input.aset);
   await setAssetStatus(input.aset, resolveAssetStatus(input));
+
+  // Rollback status aset yang di-unlink dari surat ini (tidak lagi dipakai surat)
+  const removedCodes = previousCodes.filter((code) => !input.aset.includes(code));
+  if (removedCodes.length) await setAssetStatus(removedCodes, "tersedia");
+
   return persistDocument(surat, input);
 }
 
 export async function removeSurat(nomor: string) {
+  // Baca daftar aset yang terhubung SEBELUM surat dihapus, untuk rollback status
+  const linkedCodes = linkMap(await listLinks())[nomor] ?? [];
   if (!(await deleteSurat(nomor))) return false;
   await setLinks(nomor, []);
+  if (linkedCodes.length) await setAssetStatus(linkedCodes, "tersedia");
   try { await removeFiles([pdfName(nomor), ...["menyerahkan", "menerima", "hrd"].map((party) => `ttd/${nomor.replace(/[/\\]/g, "-")}-${party}.png`)]); } catch { /* Database deletion remains authoritative. */ }
   return true;
 }
