@@ -1,5 +1,12 @@
 # Node
 node_modules/
+.npm-cache/
+.next/
+out/
+*.tsbuildinfo
+.env
+.env.local
+.env.*.local
 
 # Vercel
 .vercel/

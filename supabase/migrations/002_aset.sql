@@ -8,11 +8,19 @@ create table if not exists public.aset (
   kategori text not null default '',
   nilai numeric not null default 0,
   kondisi text not null default 'baik',
-  status text not null default 'tersedia',  -- tersedia | dipakai | rusak
+  status text not null default 'tersedia',
+  owner_id text,
+  pic_ids text[] default '{}',
+  lokasi text default '',
+  keterangan text default '',
+  assignee_id text,
+  transfer_to_id text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
 alter table public.aset enable row level security;
+create index if not exists idx_aset_owner_id on public.aset(owner_id);
+create index if not exists idx_aset_status on public.aset(status);
 
 -- Relasi surat <-> aset (banyak ke banyak)
 create table if not exists public.surat_aset (
@@ -28,7 +36,7 @@ alter table public.surat_aset enable row level security;
 create table if not exists public.log_aktivitas (
   id bigint generated always as identity primary key,
   pelaku text not null default '',
-  aksi text not null default '',          -- buat | edit | hapus | ...
+  aksi text not null default '',
   nomor_surat text not null default '',
   detail text not null default '',
   created_at timestamptz not null default now()

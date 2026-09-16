@@ -6,6 +6,18 @@ const { bikinExcel } = require('./lib/excel');
 const { buatPdf, dirPdf } = require('./lib/pdf');
 const storage = require('./lib/storage');
 const QRCode = require('qrcode');
+const { requireAuth, authenticate } = require('./lib/auth');
+const { isAllowedRole, canAccessObject, filterByScope } = require('./lib/aset-rbac');
+
+async function requireAsetScope(req, res, next, operation) {
+  if (!req.user) return res.status(401).json({ error: 'Autentikasi diperlukan.' });
+  if (!isAllowedRole(req.user.role, operation)) return res.status(403).json({ error: 'Akses ditolak.' });
+  next();
+}
+
+function buildAsetPredicate(user) {
+  return (aset) => canAccessObject(user, aset);
+}
 
 const app = express();
 
@@ -63,6 +75,7 @@ function validasiData(body) {
   const wajib = ['nama', 'departemen', 'penerima', 'departemenPenerima', 'keterangan'];
   const kosong = wajib.find((k) => !data[k]);
   if (kosong) return { error: 'Nama, departemen, dan keterangan (kedua pihak) wajib diisi.' };
+  if (data.departemen.length > 100 || data.departemenPenerima.length > 100) return { error: 'Departemen maksimal 100 karakter.' };
   if (!['penyerahan', 'pengembalian'].includes(data.kategori)) return { error: 'Kategori tidak valid.' };
   const aset = Array.isArray(body.aset) ? body.aset : [];
   for (const k of aset) {
@@ -106,6 +119,107 @@ function ttdDataUrl(ttd) {
   return out;
 }
 
+const KONDISI_VALID = ['baru', 'sangat-baik', 'baik', 'cukup', 'rusak-ringan', 'rusak-berat'];
+const STATUS_VALID = ['tersedia', 'dipakai', 'perbaikan', 'rusak', 'hilang', 'dihapus'];
+const ASET_CREATE_ALLOWLIST = new Set(['nama', 'kategori', 'nilai', 'kondisi', 'keterangan', 'pic', 'lokasi']);
+const ASET_UPDATE_ALLOWLIST = new Set(['nama', 'kategori', 'nilai', 'kondisi', 'keterangan', 'pic', 'lokasi']);
+const ASET_LIFECYCLE_ALLOWLIST = new Set(['status', 'assignee_id', 'transfer_to_id']);
+const ASET_PRIVILEGE_FIELDS = new Set(['owner_id', 'pic_ids', 'kode', 'id', 'created_at', 'updated_at', 'created_by', 'updated_by', 'status', 'role', 'roles', 'user_roles']);
+
+function cekUnknownField(body, allowlist) {
+  const unknown = Object.keys(body || {}).filter((k) => !allowlist.has(k));
+  if (unknown.length > 0) {
+    return { error: `Field tidak dikenali: ${unknown.join(', ')}` };
+  }
+  return null;
+}
+
+function cekPrivilegeField(body) {
+  const priv = Object.keys(body || {}).filter((k) => ASET_PRIVILEGE_FIELDS.has(k));
+  if (priv.length > 0) {
+    return { error: `Field server-managed atau privilege-sensitive tidak boleh dikirim: ${priv.join(', ')}` };
+  }
+  return null;
+}
+
+function validasiCreateAset(body) {
+  const bersih = (v) => (typeof v === 'string' ? v.trim() : '');
+  const nama = bersih(body.nama);
+  if (!nama) return { error: 'Nama aset wajib diisi.' };
+
+  const privErr = cekPrivilegeField(body);
+  if (privErr) return privErr;
+  const unknownErr = cekUnknownField(body, ASET_CREATE_ALLOWLIST);
+  if (unknownErr) return unknownErr;
+
+  const nilai = Number(body.nilai);
+  const kondisi = bersih(body.kondisi);
+  return {
+    data: {
+      nama,
+      kategori: bersih(body.kategori),
+      nilai: Number.isFinite(nilai) && nilai > 0 ? nilai : 0,
+      kondisi: KONDISI_VALID.includes(kondisi) ? kondisi : 'baik',
+      keterangan: bersih(body.keterangan),
+      pic: bersih(body.pic),
+      lokasi: bersih(body.lokasi),
+    },
+  };
+}
+
+function validasiUpdateAset(body) {
+  const bersih = (v) => (typeof v === 'string' ? v.trim() : '');
+
+  const privErr = cekPrivilegeField(body);
+  if (privErr) return privErr;
+  const unknownErr = cekUnknownField(body, ASET_UPDATE_ALLOWLIST);
+  if (unknownErr) return unknownErr;
+
+  const nilai = body.nilai !== undefined ? Number(body.nilai) : undefined;
+  const kondisi = body.kondisi !== undefined ? bersih(body.kondisi) : undefined;
+
+  const data = {};
+  if (body.nama !== undefined) data.nama = bersih(body.nama);
+  if (body.kategori !== undefined) data.kategori = bersih(body.kategori);
+  if (nilai !== undefined && Number.isFinite(nilai) && nilai > 0) data.nilai = nilai;
+  if (kondisi !== undefined && KONDISI_VALID.includes(kondisi)) data.kondisi = kondisi;
+  if (body.keterangan !== undefined) data.keterangan = bersih(body.keterangan);
+  if (body.pic !== undefined) data.pic = bersih(body.pic);
+  if (body.lokasi !== undefined) data.lokasi = bersih(body.lokasi);
+
+  return { data };
+}
+
+function validasiLifecycleAset(body) {
+  const status = (body.status || '').trim();
+  if (status && !STATUS_VALID.includes(status)) {
+    return { error: `Status tidak valid. Harus salah satu dari: ${STATUS_VALID.join(', ')}` };
+  }
+
+  const unknownErr = cekUnknownField(body, ASET_LIFECYCLE_ALLOWLIST);
+  if (unknownErr) return unknownErr;
+
+  const data = {};
+  if (status) data.status = status;
+
+  const bersih = (v) => (typeof v === 'string' ? v.trim() : v);
+  for (const kolom of ['assignee_id', 'transfer_to_id']) {
+    const val = body[kolom];
+    if (val === undefined) continue;
+    if (val === null) {
+      data[kolom] = null;
+      continue;
+    }
+    const s = bersih(val);
+    if (typeof s !== 'string' || s.length === 0) {
+      return { error: `${kolom} harus berupa teks non-kosong.` };
+    }
+    data[kolom] = s;
+  }
+
+  return { data };
+}
+
 function validasiAset(body) {
   const bersih = (v) => (typeof v === 'string' ? v.trim() : '');
   const kode = bersih(body.kode);
@@ -114,8 +228,6 @@ function validasiAset(body) {
   const nilai = Number(body.nilai);
   const status = bersih(body.status);
   const kondisi = bersih(body.kondisi);
-  const KONDISI_VALID = ['baru', 'sangat-baik', 'baik', 'cukup', 'rusak-ringan', 'rusak-berat'];
-  const STATUS_VALID = ['tersedia', 'dipakai', 'perbaikan', 'rusak', 'hilang', 'dihapus'];
   return {
     data: {
       kode,
@@ -231,7 +343,7 @@ function statusTtdDariMap(map, nomor) {
   };
 }
 
-async function aturStatusAset(nomorSurat, kodeLama, kodeBaru, kategori) {
+async function aturStatusAset(nomorSurat, kodeLama, kodeBaru, kategori, user) {
   const [semua, daftar] = await Promise.all([storage.aset.kodeAsetPerNomor(), storage.bacaRiwayat()]);
   const aktif = new Set();
   for (const s of daftar) {
@@ -247,11 +359,11 @@ async function aturStatusAset(nomorSurat, kodeLama, kodeBaru, kategori) {
     if (aktif.has(k) || (kodeBaruSet.has(k) && kategori === 'penyerahan')) perluDipakai.push(k);
     else perluTersedia.push(k);
   }
-  if (perluDipakai.length) await storage.aset.aturStatus(perluDipakai, 'dipakai');
-  if (perluTersedia.length) await storage.aset.aturStatus(perluTersedia, 'tersedia');
+  if (perluDipakai.length) await storage.aset.aturStatus(perluDipakai, 'dipakai', user);
+  if (perluTersedia.length) await storage.aset.aturStatus(perluTersedia, 'tersedia', user);
 }
 
-app.get('/api/riwayat/download', async (_req, res) => {
+app.get('/api/riwayat/download', requireAuth(), async (_req, res) => {
   try {
     const daftar = await storage.bacaRiwayat();
     const map = await storage.aset.kodeAsetPerNomor();
@@ -268,7 +380,7 @@ app.get('/api/riwayat/download', async (_req, res) => {
   }
 });
 
-app.get('/api/surat/:nomor/pdf', async (req, res) => {
+app.get('/api/surat/:nomor/pdf', requireAuth(), async (req, res) => {
   try {
     const namaFile = String(req.params.nomor).replace(/[/\\]/g, '-') + '.pdf';
     const buffer = await storage.ambilPdf(namaFile);
@@ -281,7 +393,7 @@ app.get('/api/surat/:nomor/pdf', async (req, res) => {
   }
 });
 
-app.get('/api/surat/:nomor/qr', async (req, res) => {
+app.get('/api/surat/:nomor/qr', requireAuth(), async (req, res) => {
   try {
     const pihak = PIHAK_TTD.includes(req.query.pihak) ? String(req.query.pihak) : null;
     const png = await QRCode.toBuffer(ttdUrl(req, req.params.nomor, pihak), {
@@ -297,7 +409,7 @@ app.get('/api/surat/:nomor/qr', async (req, res) => {
   }
 });
 
-app.post('/api/surat/:nomor/ttd', async (req, res) => {
+app.post('/api/surat/:nomor/ttd', requireAuth(), async (req, res) => {
   try {
     const surat = await cariSurat(req.params.nomor);
     if (!surat) return res.status(404).json({ error: 'Surat tidak ditemukan.' });
@@ -327,7 +439,7 @@ app.post('/api/surat/:nomor/ttd', async (req, res) => {
   }
 });
 
-app.get('/api/surat/:nomor', async (req, res) => {
+app.get('/api/surat/:nomor', requireAuth(), async (req, res) => {
   try {
     const surat = await cariSurat(req.params.nomor);
     if (!surat) return res.status(404).json({ error: 'Surat tidak ditemukan.' });
@@ -355,7 +467,7 @@ app.get('/api/config', (_req, res) => {
   });
 });
 
-app.get('/api/bootstrap', async (_req, res) => {
+app.get('/api/bootstrap', requireAuth(), async (_req, res) => {
   try {
     const [daftar, map, ttdMap, aset] = await Promise.all([
       storage.bacaRiwayat(),
@@ -385,7 +497,7 @@ app.get('/api/bootstrap', async (_req, res) => {
   }
 });
 
-app.get('/api/riwayat', async (_req, res) => {
+app.get('/api/riwayat', requireAuth(), async (_req, res) => {
   try {
     const [daftar, map, ttdMap] = await Promise.all([
       storage.bacaRiwayat(),
@@ -403,19 +515,36 @@ app.get('/api/riwayat', async (_req, res) => {
   }
 });
 
-app.post('/api/surat', async (req, res) => {
+async function authorizeAsetMutation(user, kodeAset, operation) {
+  if (!isAllowedRole(user.role, operation || 'update')) return `Akses ditolak untuk operasi '${operation || 'update'}'.`;
+  if (!kodeAset || kodeAset.length === 0) return null;
+  const asetMap = new Map();
+  await Promise.all(kodeAset.map(async (k) => {
+    const a = await storage.aset.ambilAset(k);
+    asetMap.set(String(k), a);
+  }));
+  for (const k of kodeAset) {
+    const a = asetMap.get(String(k));
+    if (!a) return `Aset tidak ditemukan: ${k}`;
+    if (!canAccessObject(user, a)) return `Akses ditolak ke aset: ${k}`;
+  }
+  return null;
+}
+
+app.post('/api/surat', requireAuth(), async (req, res) => {
   try {
+    if (req.user.role === 'viewer') return res.status(403).json({ error: 'Viewer tidak bisa membuat surat.' });
     const hasil = validasiData(req.body || {});
     if (hasil.error) return res.status(400).json({ error: hasil.error });
 
     const kodeAset = hasil.data.aset || [];
-    const errAset = await validasiKodeAsetAda(kodeAset);
-    if (errAset) return res.status(400).json({ error: errAset });
+    const errAset = await authorizeAsetMutation(req.user, kodeAset, 'create');
+    if (errAset) return res.status(403).json({ error: errAset });
     const surat = await buatSurat(hasil.data);
 
     if (kodeAset.length) {
       await storage.aset.tautkanSurat(surat.nomor, kodeAset);
-      await storage.aset.aturStatus(kodeAset, hasil.data.kategori === 'penyerahan' ? 'dipakai' : 'tersedia');
+      await storage.aset.aturStatus(kodeAset, hasil.data.kategori === 'penyerahan' ? 'dipakai' : 'tersedia', req.user);
     }
     surat.aset = await ambilInfoAset(kodeAset);
     const ttdBaru = ambilTtd(req.body.ttd);
@@ -430,8 +559,9 @@ app.post('/api/surat', async (req, res) => {
   }
 });
 
-app.put('/api/surat/:nomor', async (req, res) => {
+app.put('/api/surat/:nomor', requireAuth(), async (req, res) => {
   try {
+    if (req.user.role === 'viewer') return res.status(403).json({ error: 'Viewer tidak bisa edit surat.' });
     const hasil = validasiData(req.body || {});
     if (hasil.error) return res.status(400).json({ error: hasil.error });
 
@@ -439,14 +569,16 @@ app.put('/api/surat/:nomor', async (req, res) => {
     if (!lama) return res.status(404).json({ error: 'Nomor surat tidak ditemukan.' });
 
     const kodeAset = hasil.data.aset || [];
-    const errAset = await validasiKodeAsetAda(kodeAset);
-    if (errAset) return res.status(400).json({ error: errAset });
     const kodeAsetLama = (await storage.aset.kodeAsetPerNomor())[lama.nomor] || [];
+    const semuaKode = [...new Set([...kodeAset, ...kodeAsetLama])];
+    const errAset = await authorizeAsetMutation(req.user, semuaKode, 'update');
+    if (errAset) return res.status(403).json({ error: errAset });
+
     const surat = { ...lama, ...hasil.data };
     await storage.updateRiwayat(lama.nomor, surat);
 
     await storage.aset.tautkanSurat(surat.nomor, kodeAset);
-    await aturStatusAset(surat.nomor, kodeAsetLama, kodeAset, hasil.data.kategori);
+    await aturStatusAset(surat.nomor, kodeAsetLama, kodeAset, hasil.data.kategori, req.user);
     surat.aset = await ambilInfoAset(kodeAset);
     const ttdEdit = ambilTtd(req.body.ttd);
     if (Object.keys(ttdEdit).length) await simpanTtdSurat(surat.nomor, ttdEdit);
@@ -460,9 +592,14 @@ app.put('/api/surat/:nomor', async (req, res) => {
   }
 });
 
-app.delete('/api/surat/:nomor', async (req, res) => {
+app.delete('/api/surat/:nomor', requireAuth(), async (req, res) => {
   try {
+    if (req.user.role === 'viewer') return res.status(403).json({ error: 'Viewer tidak bisa menghapus surat.' });
     const nomor = String(req.params.nomor);
+    const kodeAset = (await storage.aset.kodeAsetPerNomor())[nomor] || [];
+    const errAset = await authorizeAsetMutation(req.user, kodeAset, 'delete');
+    if (errAset) return res.status(403).json({ error: errAset });
+
     const dihapus = await storage.hapusRiwayat(nomor);
     if (!dihapus) return res.status(404).json({ error: 'Nomor surat tidak ditemukan.' });
 
@@ -491,20 +628,28 @@ app.delete('/api/surat/:nomor', async (req, res) => {
 });
 
 // --- Aset ---
-app.get('/api/aset', async (_req, res) => {
+app.get('/api/aset', requireAuth(), async (req, res) => {
   try {
-    res.json(await storage.aset.daftarAset());
+    const daftar = await storage.aset.daftarAset();
+    const filtered = filterByScope(req.user, daftar);
+    res.json(filtered);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Gagal membaca data aset.' });
   }
 });
 
-app.post('/api/aset', async (req, res) => {
+app.post('/api/aset', requireAuth(), async (req, res) => {
   try {
-    const hasil = validasiAset(req.body || {});
+    if (!isAllowedRole(req.user.role, 'create')) return res.status(403).json({ error: 'Tidak berwenang membuat aset.' });
+    const hasil = validasiCreateAset(req.body || {});
     if (hasil.error) return res.status(400).json({ error: hasil.error });
-    if (!hasil.data.kode) hasil.data.kode = await autoKodeAset(hasil.data.kategori);
+    hasil.data.kode = await autoKodeAset(hasil.data.kategori);
+    hasil.data.status = 'tersedia';
+    if (req.user.role === 'pic') {
+      hasil.data.owner_id = req.user.userId;
+      hasil.data.pic_ids = [req.user.userId];
+    }
     const aset = await storage.aset.tambahAset(hasil.data);
     res.json(aset);
   } catch (err) {
@@ -516,34 +661,106 @@ app.post('/api/aset', async (req, res) => {
   }
 });
 
-app.put('/api/aset/:kode', async (req, res) => {
+app.get('/api/aset/:kode', requireAuth(), async (req, res) => {
   try {
-    const hasil = validasiAset(req.body || {});
-    if (hasil.error) return res.status(400).json({ error: hasil.error });
-    const aset = await storage.aset.updateAset(req.params.kode, hasil.data);
+    const aset = await storage.aset.ambilAset(req.params.kode);
     if (!aset) return res.status(404).json({ error: 'Aset tidak ditemukan.' });
+    if (!canAccessObject(req.user, aset)) return res.status(403).json({ error: 'Akses ditolak ke aset ini.' });
     res.json(aset);
   } catch (err) {
     console.error(err);
+    res.status(500).json({ error: 'Gagal membaca data aset.' });
+  }
+});
+
+app.put('/api/aset/:kode', requireAuth(), async (req, res) => {
+  try {
+    if (!isAllowedRole(req.user.role, 'update')) return res.status(403).json({ error: 'Tidak berwenang mengubah aset.' });
+    const aset = await storage.aset.ambilAset(req.params.kode);
+    if (!canAccessObject(req.user, aset)) return res.status(403).json({ error: 'Akses ditolak ke aset ini.' });
+    const hasil = validasiUpdateAset(req.body || {});
+    if (hasil.error) return res.status(400).json({ error: hasil.error });
+    const predicate = buildAsetPredicate(req.user);
+    const updated = await storage.aset.updateAset(req.params.kode, hasil.data, predicate, req.user);
+    if (!updated) return res.status(404).json({ error: 'Aset tidak ditemukan.' });
+    res.json(updated);
+  } catch (err) {
+    console.error(err);
+    if (err && err.code === 'SCOPE') {
+      return res.status(403).json({ error: 'Akses ditolak ke aset ini.' });
+    }
     res.status(500).json({ error: 'Gagal mengubah aset.' });
   }
 });
 
-app.delete('/api/aset/:kode', async (req, res) => {
+app.post('/api/aset/:kode/lifecycle', requireAuth(), async (req, res) => {
   try {
-    const ok = await storage.aset.hapusAset(req.params.kode);
+    if (!isAllowedRole(req.user.role, 'update')) return res.status(403).json({ error: 'Tidak berwenang mengubah lifecycle aset.' });
+    const aset = await storage.aset.ambilAset(req.params.kode);
+    if (!aset) return res.status(404).json({ error: 'Aset tidak ditemukan.' });
+    if (!canAccessObject(req.user, aset)) return res.status(403).json({ error: 'Akses ditolak ke aset ini.' });
+
+    const hasil = validasiLifecycleAset(req.body || {});
+    if (hasil.error) return res.status(400).json({ error: hasil.error });
+
+    const payload = { ...hasil.data };
+
+    if (hasil.data.status) {
+      const currentStatus = aset.status || 'tersedia';
+      const newStatus = hasil.data.status;
+      const validTransitions = {
+        'tersedia': ['dipakai', 'perbaikan', 'rusak', 'hilang'],
+        'dipakai': ['tersedia', 'perbaikan', 'rusak', 'hilang', 'dihapus'],
+        'perbaikan': ['dipakai', 'tersedia', 'rusak', 'hilang', 'dihapus'],
+        'rusak': ['perbaikan', 'hilang', 'dihapus'],
+        'hilang': ['dihapus'],
+        'dihapus': [],
+      };
+
+      if (!validTransitions[currentStatus] || !validTransitions[currentStatus].includes(newStatus)) {
+        return res.status(400).json({
+          error: `Transisi dari '${currentStatus}' ke '${newStatus}' tidak diizinkan. Transisi valid: ${validTransitions[currentStatus].join(', ') || 'tidak ada'}`
+        });
+      }
+      payload.status = newStatus;
+    }
+
+    if (Object.keys(payload).length > 0) {
+      await storage.aset.updateAset(req.params.kode, payload, buildAsetPredicate(req.user), req.user);
+    }
+
+    const updated = await storage.aset.ambilAset(req.params.kode);
+    res.json(updated || aset);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Gagal mengubah lifecycle aset.' });
+  }
+});
+
+app.delete('/api/aset/:kode', requireAuth(), async (req, res) => {
+  try {
+    if (!isAllowedRole(req.user.role, 'delete')) return res.status(403).json({ error: 'Tidak berwenang menghapus aset.' });
+    const aset = await storage.aset.ambilAset(req.params.kode);
+    if (!canAccessObject(req.user, aset)) return res.status(403).json({ error: 'Akses ditolak ke aset ini.' });
+    const predicate = buildAsetPredicate(req.user);
+    const ok = await storage.aset.hapusAset(req.params.kode, predicate, req.user);
     if (!ok) return res.status(404).json({ error: 'Aset tidak ditemukan.' });
     res.json({ ok: true });
   } catch (err) {
     console.error(err);
+    if (err && err.code === 'SCOPE') {
+      return res.status(403).json({ error: 'Akses ditolak ke aset ini.' });
+    }
     res.status(500).json({ error: 'Gagal menghapus aset.' });
   }
 });
 
-app.get('/api/aset/:kode/riwayat', async (req, res) => {
+app.get('/api/aset/:kode/riwayat', requireAuth(), async (req, res) => {
   try {
-    const daftar = await storage.aset.riwayatAset(req.params.kode);
-    res.json(daftar);
+    const aset = await storage.aset.ambilAset(req.params.kode);
+    if (!canAccessObject(req.user, aset)) return res.status(403).json({ error: 'Akses ditolak ke aset ini.' });
+    const hist = await storage.aset.riwayatAset(req.params.kode);
+    res.json(hist);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Gagal membaca riwayat aset.' });
