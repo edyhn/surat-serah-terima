@@ -6,8 +6,6 @@ import {
   ArrowRight,
   Download,
   FileDown,
-  FileText,
-  Package,
   Plus,
   Search,
   Trash2,
@@ -108,7 +106,8 @@ export default function SuratPage() {
             Surat Serah Terima
           </h1>
           <p className="mt-1 text-sm text-slate-500">
-            Alur pengadaan dari Mas Royan, pengecekan QC oleh IT, hingga serah terima karyawan.
+            Alur Pengadaan, Verifikasi dan Quality Control Perangkat oleh Tim IT, hingga Distribusi dan Serah Terima kepada Karyawan.
+
           </p>
         </div>
 
@@ -130,7 +129,7 @@ export default function SuratPage() {
             className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-amber-200 bg-amber-50 px-3 text-xs font-bold text-amber-900 shadow-sm transition hover:bg-amber-100"
           >
             <Plus className="size-3.5 text-amber-700" />
-            Terima dari Mas Royan
+            Pengadaan
           </button>
           <Button
             onClick={() => {
@@ -141,7 +140,7 @@ export default function SuratPage() {
             className="min-h-9 px-3 text-xs"
           >
             <Plus className="size-3.5" />
-            Serah ke Karyawan
+            Serah Terima
           </Button>
         </div>
       </div>
@@ -157,7 +156,7 @@ export default function SuratPage() {
         <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
           <div className="text-xs font-medium text-slate-500">Dalam Proses QC</div>
           <div className="mt-1 text-2xl font-bold text-amber-600">{metrics.prosesQc}</div>
-          <p className="text-[11px] text-amber-600/80 mt-0.5">Perlu dicek oleh Edy IT</p>
+          <p className="text-[11px] text-amber-600/80 mt-0.5">Perlu dicek oleh Tim IT</p>
         </div>
 
         <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
@@ -206,11 +205,11 @@ export default function SuratPage() {
               setData((current) =>
                 current
                   ? {
-                      ...current,
-                      riwayat: editing
-                        ? current.riwayat.map((item) => (item.nomor === surat.nomor ? surat : item))
-                        : [surat, ...current.riwayat],
-                    }
+                    ...current,
+                    riwayat: editing
+                      ? current.riwayat.map((item) => (item.nomor === surat.nomor ? surat : item))
+                      : [surat, ...current.riwayat],
+                  }
                   : current
               );
               setFormOpen(false);
@@ -238,44 +237,40 @@ export default function SuratPage() {
             <button
               type="button"
               onClick={() => setCategoryFilter("all")}
-              className={`rounded-md px-2.5 py-1 text-xs font-semibold transition ${
-                categoryFilter === "all"
-                  ? "bg-slate-900 text-white"
-                  : "text-slate-600 hover:text-slate-900"
-              }`}
+              className={`rounded-md px-2.5 py-1 text-xs font-semibold transition ${categoryFilter === "all"
+                ? "bg-slate-900 text-white"
+                : "text-slate-600 hover:text-slate-900"
+                }`}
             >
               Semua
             </button>
             <button
               type="button"
               onClick={() => setCategoryFilter("pengadaan")}
-              className={`rounded-md px-2.5 py-1 text-xs font-semibold transition ${
-                categoryFilter === "pengadaan"
-                  ? "bg-slate-900 text-white"
-                  : "text-slate-600 hover:text-slate-900"
-              }`}
+              className={`rounded-md px-2.5 py-1 text-xs font-semibold transition ${categoryFilter === "pengadaan"
+                ? "bg-slate-900 text-white"
+                : "text-slate-600 hover:text-slate-900"
+                }`}
             >
               Pengadaan
             </button>
             <button
               type="button"
               onClick={() => setCategoryFilter("penyerahan")}
-              className={`rounded-md px-2.5 py-1 text-xs font-semibold transition ${
-                categoryFilter === "penyerahan"
-                  ? "bg-slate-900 text-white"
-                  : "text-slate-600 hover:text-slate-900"
-              }`}
+              className={`rounded-md px-2.5 py-1 text-xs font-semibold transition ${categoryFilter === "penyerahan"
+                ? "bg-slate-900 text-white"
+                : "text-slate-600 hover:text-slate-900"
+                }`}
             >
               Penyerahan
             </button>
             <button
               type="button"
               onClick={() => setCategoryFilter("pengembalian")}
-              className={`rounded-md px-2.5 py-1 text-xs font-semibold transition ${
-                categoryFilter === "pengembalian"
-                  ? "bg-slate-900 text-white"
-                  : "text-slate-600 hover:text-slate-900"
-              }`}
+              className={`rounded-md px-2.5 py-1 text-xs font-semibold transition ${categoryFilter === "pengembalian"
+                ? "bg-slate-900 text-white"
+                : "text-slate-600 hover:text-slate-900"
+                }`}
             >
               Pengembalian
             </button>
@@ -316,13 +311,12 @@ export default function SuratPage() {
                     </td>
                     <td className="px-4 py-3.5">
                       <span
-                        className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
-                          surat.kategori === "pengadaan"
-                            ? "bg-amber-50 text-amber-700 border border-amber-200"
-                            : surat.kategori === "penyerahan"
+                        className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${surat.kategori === "pengadaan"
+                          ? "bg-amber-50 text-amber-700 border border-amber-200"
+                          : surat.kategori === "penyerahan"
                             ? "bg-blue-50 text-blue-700 border border-blue-200"
                             : "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                        }`}
+                          }`}
                       >
                         {surat.kategori}
                       </span>
