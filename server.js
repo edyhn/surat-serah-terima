@@ -47,6 +47,36 @@ setInterval(() => {
   }
 }, RATE_WINDOW).unref();
 
+// Rate limit per nomor surat untuk surface signing: mencegah brute-force / hammering
+// satu nomor yang sama di luar limit global per-IP. Key = ip + nomor.
+const ttdRateMap = new Map();
+const TTD_RATE_WINDOW = 60 * 1000;
+const TTD_RATE_MAX = 5;
+function ttdRateLimit(req, res, next) {
+  const nomor = String(req.params.nomor || '');
+  if (!nomor) return next();
+  const ip = req.ip || req.connection.remoteAddress || 'unknown';
+  const key = `${ip}|${nomor}`;
+  const now = Date.now();
+  const rec = ttdRateMap.get(key) || { count: 0, start: now };
+  if (now - rec.start > TTD_RATE_WINDOW) {
+    rec.count = 0;
+    rec.start = now;
+  }
+  rec.count++;
+  ttdRateMap.set(key, rec);
+  if (rec.count > TTD_RATE_MAX) {
+    return res.status(429).json({ error: 'Terlalu banyak upaya penandatanganan untuk surat ini, coba lagi nanti.' });
+  }
+  next();
+}
+setInterval(() => {
+  const now = Date.now();
+  for (const [k, v] of ttdRateMap.entries()) {
+    if (now - v.start > TTD_RATE_WINDOW * 2) ttdRateMap.delete(k);
+  }
+}, TTD_RATE_WINDOW).unref();
+
 app.use(express.json({ limit: '5mb' }));
 app.use(
   express.static(path.join(__dirname, 'public'), {
@@ -60,6 +90,16 @@ app.use(
 );
 // PDF arsip — tetap publik tapi hanya file .pdf yang di-serve; enumerasi dibatasi oleh nama yang tidak mudah ditebak (nomor surat)
 app.use('/pdf', express.static(dirPdf(), { fallthrough: false }));
+
+// OPTIONS / CORS preflight: respons seragam 204 tanpa body & tanpa oracle route-existence.
+// Menghindari perilaku default Express yang membalas Allow ke body (mis. "POST").
+const OPTIONS_ALLOW = 'GET, HEAD, POST, PUT, PATCH, DELETE, OPTIONS';
+app.options('/api', (_req, res) => {
+  res.set('Allow', OPTIONS_ALLOW).set('Cache-Control', 'no-store').status(204).end();
+});
+app.options('/api/*', (_req, res) => {
+  res.set('Allow', OPTIONS_ALLOW).set('Cache-Control', 'no-store').status(204).end();
+});
 
 function validasiData(body) {
   const bersih = (v) => (typeof v === 'string' ? v.trim() : '');
@@ -409,7 +449,7 @@ app.get('/api/surat/:nomor/qr', requireAuth(), async (req, res) => {
   }
 });
 
-app.post('/api/surat/:nomor/ttd', requireAuth(), async (req, res) => {
+app.post('/api/surat/:nomor/ttd', requireAuth(), ttdRateLimit, async (req, res) => {
   try {
     const surat = await cariSurat(req.params.nomor);
     if (!surat) return res.status(404).json({ error: 'Surat tidak ditemukan.' });

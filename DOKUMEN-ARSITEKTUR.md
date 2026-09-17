@@ -204,3 +204,68 @@ vercel --prod     # deploy ke produksi
 | `ENOENT mkdir /var/task/data` | Mencoba tulis file di Vercel | Pastikan env `SUPABASE_URL` + key aktif |
 | `Not a supported font format` | Font TTF tidak ada di server | Fallback otomatis ke Helvetica (sudah ditangani) |
 | PDF/riwayat kosong | Bucket/DB belum dibuat | Jalankan `supabase/migrations/001_init.sql`, buat bucket |
+
+---
+
+## 10. Kebijakan Role & Sumber Otorisasi (ISSUE-39 / ISSUE-41)
+
+> Status: **terverifikasi PASS** — tidak ada jalur otorisasi yang membaca klaim
+> `role` dari JWT secara langsung. Lihat `SECURITY-SIGNING.md` untuk sistem token eksternal.
+
+### Prinsip
+
+Otorisasi **tidak pernah** bergantung pada klaim JWT. JWT hanya membuktikan
+**identitas** (`sub` / user id). **Role adalah server-controlled**: role ditentukan
+server dari tabel `user_roles` di database, bukan dari token klien. Jika secret
+JWT bocor sekalipun, penyerang tidak dapat memalsukan `role: admin` tanpa baris
+`user_roles` yang valid.
+
+### Alur
+
+```
+Token Supabase (akses)          ──►  sb.auth.getUser(token)      (identitas)
+                                         │
+                                         ▼
+                              fetchUserRoleFromServer(userId)    (otorisasi)
+                                         │
+                     SELECT role, active FROM public.user_roles
+                     WHERE user_id = ?                            (via service-role key)
+                                         │
+                                         ▼
+                     { role, userId, active } → req.user
+```
+
+Implementasi:
+
+- `lib/auth.js:36-51` — `verifySupabaseToken()`: validasi token via
+  `sb.auth.getUser(token)` untuk mengikat identitas, lalu `fetchUserRoleFromServer()`
+  mengambil role dari tabel `user_roles` (`lib/auth.js:17-34`).
+- `lib/auth.js:67-81` — `requireAuth(roles)` menegakkan batasan role pada route.
+- `lib/aset-rbac.js:5-25` — matriks operasi per role (`viewer`/`pic`/`admin`).
+- `src/middleware.ts:46-57` — hanya memeriksa **keberadaan** klaim
+  (`data?.claims`), tidak pernah membaca nilai `role` dari klaim.
+- `src/app/api/signing/token/*` — hanya memakai `claims.sub` (user id), bukan role.
+- `supabase/migrations/005_aset_rbac_roles.sql` — tabel `user_roles` + constraint
+  `CHECK (role in ('viewer','pic','admin'))`, RLS terbatas ke `service_role`.
+- `server.js:126` — field istimewa (`role`, `roles`, `user_roles`) ditolak dari
+  payload klien (`ASET_PRIVILEGE_FIELDS`).
+
+### Role yang didukung
+
+| Role | Operasi aset (`lib/aset-rbac.js`) | Surat |
+|---|---|---|
+| `viewer` | read | Tidak bisa buat/edit/hapus surat (`server.js:535,563,596`) |
+| `pic` | read, create, update, transition (scope milik/PIC) | Bisa buat/edit; hapus hanya surat tanpa aset (hapus terikat aset butuh `admin` lewat `authorizeAsetMutation` `server.js:517`) |
+| `admin` | read, create, update, delete, transition, admin | Semua operasi |
+
+Role didaftarkan serentak di: `lib/auth.js:3` (`ANON_ROLES`), `lib/aset-rbac.js:5`
+(`ROLE_OPERATIONS`), dan constraint DB di `005_aset_rbac_roles.sql:7`. Perubahan
+role hanya dilakukan server-side (mis. `granted_by` + `granted_at` di tabel
+`user_roles`).
+
+### Catatan klaim role Supabase standar
+
+Token Supabase standar membawa `role: authenticated` (bukan role aplikasi).
+Karena kode aplikasi **tidak pernah** membaca klaim `role` untuk keputusan
+otorisasi, klaim tersebut tidak relevan untuk keamanan. Role aplikasi dipegang
+penuh oleh tabel `user_roles`.
